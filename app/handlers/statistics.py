@@ -13,27 +13,18 @@ def register_statistics_handlers(bot: TeleBot) -> None:
         generated = stats["generated"]
         right = stats["right"]
         wrong = stats["wrong"]
-        no_answer = max(0, generated - right - wrong)
 
         chart_path = render_statistics_chart(
             user_id=message.from_user.id,
+            username=message.from_user.username,
             generated=generated,
             right=right,
             wrong=wrong,
-        )
-
-        caption = (
-            f"📊 <b>Твоя статистика</b>\n\n"
-            f"Всего сгенерировано: <b>{generated}</b>\n"
-            f"✅ Правильных: <b>{right}</b>\n"
-            f"❌ Неправильных: <b>{wrong}</b>\n"
-            f"⚪ Без ответа: <b>{no_answer}</b>"
         )
 
         with open(chart_path, "rb") as photo:
             bot.send_photo(
                 chat_id=message.chat.id,
                 photo=photo,
-                caption=caption,
                 reply_markup=generate_only_keyboard(),
             )
