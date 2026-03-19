@@ -25,86 +25,127 @@ def render_statistics_chart(
 ) -> Path:
     no_answer = max(0, generated - right - wrong)
 
-    values = [right, wrong, no_answer]
-    colors = ["#00c853", "#ff1744", "#9e9e9e"]
-    labels = ["Правильные", "Неправильные", "Без ответа"]
+    # Порядок только для легенды/чисел
+    green = "#00c853"
+    red = "#ff1744"
+    gray = "#9e9e9e"
 
-    if sum(values) == 0:
-        values = [1]
-        colors = ["#9e9e9e"]
+    # Порядок именно для круга:
+    # слева сверху зелёный -> справа красный -> снизу/снизу-слева серый
+    pie_values = [right, wrong, no_answer]
+    pie_colors = [green, red, gray]
 
-    fig = plt.figure(figsize=(8, 10), facecolor="black")
+    if sum(pie_values) == 0:
+        pie_values = [1]
+        pie_colors = [gray]
+
+    fig = plt.figure(figsize=(7.2, 8.4), facecolor="black")
     fig.patch.set_facecolor("black")
 
-    # Заголовок
     username_text = _safe_username(username)
+
+    # Заголовок — чуть выше и компактнее
     fig.text(
         0.5,
-        0.95,
+        0.93,
         f"Статистика ответов\nпользователя @{username_text}",
         ha="center",
         va="top",
         color="#ffd600",
-        fontsize=22,
+        fontsize=21,
         fontweight="bold",
     )
 
-    # Диаграмма
-    ax_pie = fig.add_axes([0.18, 0.34, 0.64, 0.40], facecolor="black")
-    ax_pie.pie(
-        values,
-        colors=colors,
-        startangle=90,
-        counterclock=False,
-        wedgeprops={"edgecolor": "black", "linewidth": 2},
+    # Круг — больше и выше
+    ax_pie = fig.add_axes([0.05, 0.24, 0.90, 0.60], facecolor="black")
+    radius = 1.12
+    wedges, texts, autotexts = ax_pie.pie(
+        pie_values,
+        colors=pie_colors,
+        startangle=200,  # <-- чтобы зелёный ушёл влево-вверх, красный вправо
+        counterclock=False,  # <-- порядок по часовой стрелке
+        autopct="%1.0f%%" if generated > 0 else None,
+        pctdistance=0.56,
+        wedgeprops={"edgecolor": "black", "linewidth": 2.2},
+        textprops={"color": "black", "fontsize": 22, "fontweight": "bold"},
     )
     ax_pie.set_aspect("equal")
     ax_pie.set_facecolor("black")
 
-    # Белый блок с легендой и цифрами
-    ax_legend = fig.add_axes([0.14, 0.16, 0.72, 0.14])
-    ax_legend.set_facecolor("white")
-    ax_legend.set_xlim(0, 1)
-    ax_legend.set_ylim(0, 1)
-    ax_legend.set_xticks([])
-    ax_legend.set_yticks([])
-    for spine in ax_legend.spines.values():
-        spine.set_visible(False)
+    for text in texts:
+        text.set_visible(False)
 
-    rows = [
-        ("#00c853", "Правильные", right),
-        ("#ff1744", "Неправильные", wrong),
-        ("#9e9e9e", "Без ответа", no_answer),
-    ]
+    # Нижние блоки — как на скрине, шире и ближе к низу
+    left_box = fig.add_axes([0.09, 0.06, 0.40, 0.10])
+    right_box = fig.add_axes([0.52, 0.06, 0.40, 0.10])
 
-    y_positions = [0.72, 0.42, 0.12]
+    for ax in (left_box, right_box):
+        ax.set_facecolor("white")
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
-    for (color, label, value), y in zip(rows, y_positions, strict=False):
-        ax_legend.add_patch(
-            Rectangle(
-                (0.05, y), 0.05, 0.16, facecolor=color, edgecolor="black", linewidth=0.8
-            )
+    # Левый белый блок
+    left_box.add_patch(
+        Rectangle(
+            (0.05, 0.56), 0.10, 0.22, facecolor=green, edgecolor="black", linewidth=0.6
         )
-        ax_legend.text(
-            0.14,
-            y + 0.08,
-            f"{label}: {value}",
-            va="center",
-            ha="left",
-            fontsize=14,
-            color="black",
-            fontweight="bold",
-        )
+    )
+    left_box.text(
+        0.23,
+        0.67,
+        f"Правильные: {right}",
+        ha="left",
+        va="center",
+        fontsize=14,
+        color="black",
+        fontweight="bold",
+    )
 
-    # Низ картинки
-    fig.text(
+    left_box.add_patch(
+        Rectangle(
+            (0.05, 0.14), 0.10, 0.22, facecolor=red, edgecolor="black", linewidth=0.6
+        )
+    )
+    left_box.text(
+        0.23,
+        0.25,
+        f"Неправильные: {wrong}",
+        ha="left",
+        va="center",
+        fontsize=14,
+        color="black",
+        fontweight="bold",
+    )
+
+    # Правый белый блок
+    right_box.add_patch(
+        Rectangle(
+            (0.05, 0.56), 0.10, 0.22, facecolor=gray, edgecolor="black", linewidth=0.6
+        )
+    )
+    right_box.text(
+        0.23,
+        0.67,
+        f"Без ответа: {no_answer}",
+        ha="left",
+        va="center",
+        fontsize=14,
+        color="black",
+        fontweight="bold",
+    )
+
+    right_box.text(
         0.5,
-        0.07,
-        f"Всего сгенерированных фраз: {generated}",
+        0.25,
+        f"Всего фраз: {generated}",
         ha="center",
         va="center",
-        color="white",
-        fontsize=18,
+        fontsize=14,
+        color="black",
         fontweight="bold",
     )
 
@@ -112,9 +153,9 @@ def render_statistics_chart(
     fig.savefig(
         image_path,
         dpi=160,
-        facecolor=fig.get_facecolor(),
-        bbox_inches="tight",
-        pad_inches=0.25,
+        facecolor="black",
+        # bbox_inches="tight",
+        pad_inches=0.08,
     )
     plt.close(fig)
 
