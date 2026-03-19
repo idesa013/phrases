@@ -11,6 +11,7 @@ from app.keyboards.inline import (
 from app.services.game_state import get_state, mark_generated
 from app.services.image_generator import render_phrase_image
 from app.services.phrase_repository import get_random_phrase
+from app.services.stats_repository import increment_generated
 
 
 def activate_show_answer_button(bot: TeleBot, chat_id: int, message_id: int) -> None:
@@ -27,8 +28,10 @@ def activate_show_answer_button(bot: TeleBot, chat_id: int, message_id: int) -> 
 def register_callback_handlers(bot: TeleBot) -> None:
     @bot.callback_query_handler(func=lambda call: call.data == "generate_phrase")
     def handle_generate_phrase(call) -> None:
-        phrase = get_random_phrase()
+        current_state = get_state(call.from_user.id)
+        phrase = get_random_phrase(exclude=current_state.phrase)
         state = mark_generated(call.from_user.id, phrase)
+        increment_generated(call.from_user.id, call.from_user.username)
 
         image_path = render_phrase_image(phrase)
 

@@ -8,6 +8,7 @@ APP_DIR = BASE_DIR / "app"
 DATA_DIR = APP_DIR / "data"
 ASSETS_DIR = APP_DIR / "assets"
 FONTS_DIR = ASSETS_DIR / "fonts"
+DB_PATH = DATA_DIR / "stats.db"
 
 ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH)

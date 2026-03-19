@@ -15,6 +15,18 @@ def save_phrases(phrases: list[str]) -> None:
         json.dump(sorted(set(phrases)), file, ensure_ascii=False, indent=2)
 
 
-def get_random_phrase() -> str:
+def get_random_phrase(exclude: str | None = None) -> str:
     phrases = load_phrases()
-    return random.choice(phrases)
+
+    if not phrases:
+        raise ValueError("Список фраз пуст.")
+
+    if exclude is None or len(phrases) == 1:
+        return random.choice(phrases)
+
+    filtered = [phrase for phrase in phrases if phrase != exclude]
+
+    if not filtered:
+        return random.choice(phrases)
+
+    return random.choice(filtered)

@@ -129,6 +129,30 @@ def looks_like_original(candidate: str, originals: tuple[str, str]) -> bool:
     return False
 
 
+def contains_original_word_in_any_split(
+    parts: list[str],
+    originals: tuple[str, str],
+) -> bool:
+    """
+    Проверяет все возможные разрезы списка частей на 2 слова.
+    Если хотя бы одно из получившихся слов совпадает с одним из оригинальных,
+    такой вариант считаем плохим.
+    """
+    normalized_originals = {word.lower() for word in originals}
+
+    for index in range(1, len(parts)):
+        left_word = "".join(parts[:index]).lower()
+        right_word = "".join(parts[index:]).lower()
+
+        if left_word in normalized_originals:
+            return True
+
+        if right_word in normalized_originals:
+            return True
+
+    return False
+
+
 def build_shuffled_parts(phrase: str) -> list[str]:
     first_word, second_word = phrase.split()
     originals = (first_word, second_word)
@@ -141,12 +165,20 @@ def build_shuffled_parts(phrase: str) -> list[str]:
     if len(base_syllables) < 4:
         shuffled = base_syllables[:]
         random.shuffle(shuffled)
-        return normalize_shuffled_parts(shuffled)
+        normalized = normalize_shuffled_parts(shuffled)
 
-    for _ in range(80):
+        if contains_original_word_in_any_split(normalized, originals):
+            return shuffled
+
+        return normalized
+
+    for _ in range(200):
         shuffled = base_syllables[:]
         random.shuffle(shuffled)
         normalized = normalize_shuffled_parts(shuffled)
+
+        if contains_original_word_in_any_split(normalized, originals):
+            continue
 
         sep = max(1, len(normalized) // 2)
         fake_word_1 = "".join(normalized[:sep])
