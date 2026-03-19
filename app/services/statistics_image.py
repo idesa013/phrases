@@ -21,7 +21,7 @@ def render_statistics_chart(
     labels = ["Правильные", "Неправильные", "Без ответа"]
     colors = ["green", "red", "gray"]
 
-    if sum(values) == 0:
+    if generated == 0:
         values = [1]
         labels = ["Нет данных"]
         colors = ["gray"]
@@ -31,7 +31,7 @@ def render_statistics_chart(
         values,
         labels=labels,
         colors=colors,
-        autopct="%1.0f%%" if sum(values) > 0 else None,
+        autopct="%1.0f%%" if generated > 0 else None,
         startangle=90,
     )
     ax.axis("equal")
