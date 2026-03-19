@@ -1,4 +1,5 @@
 from telebot import TeleBot
+from telebot.types import BotCommand
 from app.config import BOT_TOKEN
 from app.handlers.callbacks import register_callback_handlers
 from app.handlers.messages import register_message_handlers
@@ -12,9 +13,15 @@ bot = TeleBot(BOT_TOKEN, parse_mode="HTML")
 def main() -> None:
     init_stats_db()
     update_phrases(force=False)
-    register_message_handlers(bot)
     register_statistics_handlers(bot)
+    register_message_handlers(bot)
     register_callback_handlers(bot)
+    bot.set_my_commands(
+        [
+            BotCommand("start", "Запустить бота"),
+            BotCommand("statistics", "Показать статистику"),
+        ]
+    )
     bot.infinity_polling()
 
 

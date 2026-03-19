@@ -20,7 +20,10 @@ def register_message_handlers(bot: TeleBot) -> None:
             reply_markup=generate_only_keyboard(),
         )
 
-    @bot.message_handler(func=lambda message: True, content_types=["text"])
+    @bot.message_handler(
+        func=lambda message: bool(message.text) and not message.text.startswith("/"),
+        content_types=["text"],
+    )
     def handle_answer(message) -> None:
         state = get_state(message.from_user.id)
 
