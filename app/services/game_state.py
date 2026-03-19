@@ -10,6 +10,7 @@ class GameState:
     answer_shown: bool = False
     generated_at: float = 0.0
     image_message_id: int | None = None
+    phrase_image_path: str | None = None
 
 
 USER_STATES: dict[int, GameState] = {}
@@ -32,4 +33,5 @@ def mark_generated(user_id: int, phrase: str) -> GameState:
     state.answer_shown = False
     state.generated_at = time()
     state.image_message_id = None
+    state.phrase_image_path = None
     return state

@@ -90,3 +90,25 @@ def increment_wrong(user_id: int, username: str | None) -> None:
     user.save()
 
     database.close()
+
+
+def get_user_stats(user_id: int) -> dict:
+    database.connect(reuse_if_open=True)
+
+    try:
+        user = UserStats.get_or_none(UserStats.user_id == user_id)
+
+        if user is None:
+            return {
+                "generated": 0,
+                "right": 0,
+                "wrong": 0,
+            }
+
+        return {
+            "generated": user.generated,
+            "right": user.right,
+            "wrong": user.wrong,
+        }
+    finally:
+        database.close()

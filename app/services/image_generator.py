@@ -6,7 +6,7 @@ from pathlib import Path
 import pyphen
 from PIL import Image, ImageDraw, ImageFont
 
-from app.config import FONT_MAIN_PATH, IMAGE_PATH
+from app.config import FONT_MAIN_PATH, IMAGES_DIR
 
 if not hasattr(inspect, "getargspec"):
     inspect.getargspec = inspect.getfullargspec
@@ -25,6 +25,11 @@ COLORS = [
     "#bf5af2",
     "#5ac8fa",
 ]
+
+
+def get_phrase_image_path(user_id: int) -> Path:
+    return IMAGES_DIR / f"phrase_{user_id}.png"
+
 
 VOWELS = "АЕЁИОУЫЭЮЯ"
 CONSONANTS = "БВГДЖЗЙКЛМНПРСТФХЦЧШЩ"
@@ -244,7 +249,7 @@ def get_line_height(draw: ImageDraw.ImageDraw, font: ImageFont.FreeTypeFont) -> 
     return box[3] - box[1]
 
 
-def render_phrase_image(phrase: str) -> Path:
+def render_phrase_image(phrase: str, user_id: int) -> Path:
     syllables = build_shuffled_parts(phrase)
 
     width = 1000
@@ -286,5 +291,6 @@ def render_phrase_image(phrase: str) -> Path:
             draw.text((x, y), part, fill=line_colors[index], font=main_font)
             x += widths[index]
 
-    image.save(IMAGE_PATH)
-    return IMAGE_PATH
+    image_path = get_phrase_image_path(user_id)
+    image.save(image_path)
+    return image_path

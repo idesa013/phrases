@@ -33,7 +33,8 @@ def register_callback_handlers(bot: TeleBot) -> None:
         state = mark_generated(call.from_user.id, phrase)
         increment_generated(call.from_user.id, call.from_user.username)
 
-        image_path = render_phrase_image(phrase)
+        image_path = render_phrase_image(phrase, call.from_user.id)
+        state.phrase_image_path = str(image_path)
 
         bot.answer_callback_query(call.id)
 

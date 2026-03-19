@@ -2,8 +2,13 @@ from telebot import TeleBot
 
 from app.keyboards.inline import generate_only_keyboard
 from app.services.game_state import get_state
-from app.utils.text import normalize_phrase_text
-from app.services.stats_repository import increment_right, increment_wrong
+from app.utils.text import normalize_answer
+from app.services.stats_repository import (
+    increment_right,
+    increment_wrong,
+    get_user_stats,
+)
+from app.services.statistics_image import render_statistics_chart
 
 
 def register_message_handlers(bot: TeleBot) -> None:
@@ -27,8 +32,8 @@ def register_message_handlers(bot: TeleBot) -> None:
             )
             return
 
-        user_answer = normalize_phrase_text(message.text)
-        correct_answer = normalize_phrase_text(state.phrase)
+        user_answer = normalize_answer(message.text or "")
+        correct_answer = normalize_answer(state.phrase)
 
         image_message_id = state.image_message_id
         state.waiting_for_answer = False
@@ -44,17 +49,17 @@ def register_message_handlers(bot: TeleBot) -> None:
                 pass
 
         if user_answer == correct_answer:
+            increment_right(message.from_user.id, message.from_user.username)
             bot.send_message(
                 message.chat.id,
                 f"✅ Отлично! Правильный ответ: <b>{state.phrase}</b>",
                 reply_markup=generate_only_keyboard(),
             )
-            increment_right(message.from_user.id, message.from_user.username)
             return
 
+        increment_wrong(message.from_user.id, message.from_user.username)
         bot.send_message(
             message.chat.id,
             f"❌ Неправильно.\nПравильный ответ: <b>{state.phrase}</b>",
             reply_markup=generate_only_keyboard(),
         )
-        increment_wrong(message.from_user.id, message.from_user.username)
