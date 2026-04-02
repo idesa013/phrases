@@ -25,7 +25,6 @@ def main() -> None:
         [
             BotCommand("start", "Запустить бота"),
             BotCommand("statistics", "Показать статистику"),
-            BotCommand("admin", "Админ-панель"),
         ]
     )
 
