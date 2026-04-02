@@ -50,8 +50,8 @@ def draw_text_with_shadow(
     text,
     font,
     fill,
-    shadow_color=(0, 0, 0),
-    shadow_offset=(3, 3),
+    shadow_color=(220, 0, 0),
+    shadow_offset=(2, 2),
 ):
     x, y = position
 
