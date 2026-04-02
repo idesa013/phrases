@@ -2,6 +2,7 @@ from telebot import TeleBot
 from telebot.types import BotCommand
 
 from app.config import BOT_TOKEN
+from app.handlers.admin import register_admin_handlers
 from app.handlers.callbacks import register_callback_handlers
 from app.handlers.messages import register_message_handlers
 from app.handlers.statistics import register_statistics_handlers
@@ -16,6 +17,7 @@ def main() -> None:
     update_phrases(force=False)
 
     register_statistics_handlers(bot)
+    register_admin_handlers(bot)
     register_message_handlers(bot)
     register_callback_handlers(bot)
 
@@ -23,6 +25,7 @@ def main() -> None:
         [
             BotCommand("start", "Запустить бота"),
             BotCommand("statistics", "Показать статистику"),
+            BotCommand("admin", "Админ-панель"),
         ]
     )
 
