@@ -1,9 +1,20 @@
 from pathlib import Path
+from math import cos, sin, radians
 
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from PIL import Image, ImageDraw, ImageFont
 
-from app.config import IMAGES_DIR
+from app.config import FONT_HINT_BOLD_PATH, FONT_HINT_PATH, IMAGES_DIR
+
+
+WIDTH = 900
+HEIGHT = 1100
+
+BLACK = "#000000"
+WHITE = "#FFFFFF"
+YELLOW = "#FFD600"
+GREEN = "#00C853"
+RED = "#FF1744"
+GRAY = "#9E9E9E"
 
 
 def get_statistics_image_path(user_id: int) -> Path:
@@ -13,7 +24,66 @@ def get_statistics_image_path(user_id: int) -> Path:
 def _safe_username(username: str | None) -> str:
     if not username:
         return "unknown"
-    return username.lstrip("@")
+    return username.lstrip("@") or "unknown"
+
+
+def _load_font(path: Path, size: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(path), size)
+
+
+def _draw_centered_text(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    fill: str,
+) -> None:
+    draw.text(xy, text, font=font, fill=fill, anchor="mm")
+
+
+def _draw_box(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    fill: str,
+) -> None:
+    draw.rounded_rectangle(box, radius=0, fill=fill)
+
+
+def _draw_legend_square(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    color: str,
+) -> None:
+    draw.rectangle((x, y, x + 34, y + 34), fill=color, outline="black", width=1)
+
+
+def _draw_pie_slice(
+    draw: ImageDraw.ImageDraw,
+    bbox: tuple[int, int, int, int],
+    start_angle: float,
+    end_angle: float,
+    fill: str,
+) -> None:
+    draw.pieslice(
+        bbox, start=start_angle, end=end_angle, fill=fill, outline="black", width=4
+    )
+
+
+def _draw_percentage_label(
+    draw: ImageDraw.ImageDraw,
+    center: tuple[int, int],
+    radius: int,
+    start_angle: float,
+    end_angle: float,
+    percent_text: str,
+    font: ImageFont.FreeTypeFont,
+) -> None:
+    mid = (start_angle + end_angle) / 2
+    label_radius = radius * 0.50
+    x = center[0] + cos(radians(mid)) * label_radius
+    y = center[1] + sin(radians(mid)) * label_radius
+    draw.text((x, y), percent_text, font=font, fill="black", anchor="mm")
 
 
 def render_statistics_chart(
@@ -25,138 +95,112 @@ def render_statistics_chart(
 ) -> Path:
     no_answer = max(0, generated - right - wrong)
 
-    # Порядок только для легенды/чисел
-    green = "#00c853"
-    red = "#ff1744"
-    gray = "#9e9e9e"
+    image = Image.new("RGB", (WIDTH, HEIGHT), BLACK)
+    draw = ImageDraw.Draw(image)
 
-    # Порядок именно для круга:
-    # слева сверху зелёный -> справа красный -> снизу/снизу-слева серый
-    pie_values = [right, wrong, no_answer]
-    pie_colors = [green, red, gray]
-
-    if sum(pie_values) == 0:
-        pie_values = [1]
-        pie_colors = [gray]
-
-    fig = plt.figure(figsize=(7.2, 8.4), facecolor="black")
-    fig.patch.set_facecolor("black")
+    title_font = _load_font(FONT_HINT_BOLD_PATH, 44)
+    percent_font = _load_font(FONT_HINT_BOLD_PATH, 42)
+    legend_font = _load_font(FONT_HINT_BOLD_PATH, 22)
+    bottom_font = _load_font(FONT_HINT_BOLD_PATH, 24)
 
     username_text = _safe_username(username)
 
-    # Заголовок — чуть выше и компактнее
-    fig.text(
-        0.5,
-        0.93,
-        f"Статистика ответов\nпользователя @{username_text}",
-        ha="center",
-        va="top",
-        color="#ffd600",
-        fontsize=21,
-        fontweight="bold",
+    title = f"Статистика ответов\nпользователя @{username_text}"
+    _draw_centered_text(
+        draw,
+        (WIDTH // 2, 95),
+        title,
+        title_font,
+        YELLOW,
     )
 
-    # Круг — больше и выше
-    ax_pie = fig.add_axes([0.05, 0.24, 0.90, 0.60], facecolor="black")
-    radius = 1.12
-    wedges, texts, autotexts = ax_pie.pie(
-        pie_values,
-        colors=pie_colors,
-        startangle=200,  # <-- чтобы зелёный ушёл влево-вверх, красный вправо
-        counterclock=False,  # <-- порядок по часовой стрелке
-        autopct="%1.0f%%" if generated > 0 else None,
-        pctdistance=0.56,
-        wedgeprops={"edgecolor": "black", "linewidth": 2.2},
-        textprops={"color": "black", "fontsize": 22, "fontweight": "bold"},
-    )
-    ax_pie.set_aspect("equal")
-    ax_pie.set_facecolor("black")
-
-    for text in texts:
-        text.set_visible(False)
-
-    # Нижние блоки — как на скрине, шире и ближе к низу
-    left_box = fig.add_axes([0.09, 0.06, 0.40, 0.10])
-    right_box = fig.add_axes([0.52, 0.06, 0.40, 0.10])
-
-    for ax in (left_box, right_box):
-        ax.set_facecolor("white")
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-
-    # Левый белый блок
-    left_box.add_patch(
-        Rectangle(
-            (0.05, 0.56), 0.10, 0.22, facecolor=green, edgecolor="black", linewidth=0.6
-        )
-    )
-    left_box.text(
-        0.23,
-        0.67,
-        f"Правильные: {right}",
-        ha="left",
-        va="center",
-        fontsize=14,
-        color="black",
-        fontweight="bold",
+    # Круг
+    center = (WIDTH // 2, 430)
+    radius = 285
+    pie_bbox = (
+        center[0] - radius,
+        center[1] - radius,
+        center[0] + radius,
+        center[1] + radius,
     )
 
-    left_box.add_patch(
-        Rectangle(
-            (0.05, 0.14), 0.10, 0.22, facecolor=red, edgecolor="black", linewidth=0.6
-        )
+    values = [right, wrong, no_answer]
+    colors = [GREEN, RED, GRAY]
+
+    total = sum(values)
+
+    if total == 0:
+        _draw_pie_slice(draw, pie_bbox, 0, 360, GRAY)
+    else:
+        # Порядок: слева сверху зелёный -> справа красный -> снизу серый
+        start_angle = 180
+
+        for value, color in zip(values, colors, strict=False):
+            if value <= 0:
+                continue
+
+            angle = 360 * value / total
+            end_angle = start_angle + angle
+            _draw_pie_slice(draw, pie_bbox, start_angle, end_angle, color)
+
+            percent = round(value * 100 / total)
+            _draw_percentage_label(
+                draw,
+                center=center,
+                radius=radius,
+                start_angle=start_angle,
+                end_angle=end_angle,
+                percent_text=f"{percent}%",
+                font=percent_font,
+            )
+            start_angle = end_angle
+
+    # Нижние белые блоки
+    left_box = (70, 805, 415, 930)
+    right_box = (485, 805, 830, 930)
+
+    _draw_box(draw, left_box, WHITE)
+    _draw_box(draw, right_box, WHITE)
+
+    _draw_legend_square(draw, 92, 830, GREEN)
+    draw.text(
+        (150, 847), f"Правильные: {right}", font=legend_font, fill="black", anchor="lm"
     )
-    left_box.text(
-        0.23,
-        0.25,
+
+    _draw_legend_square(draw, 92, 885, RED)
+    draw.text(
+        (150, 902),
         f"Неправильные: {wrong}",
-        ha="left",
-        va="center",
-        fontsize=14,
-        color="black",
-        fontweight="bold",
+        font=legend_font,
+        fill="black",
+        anchor="lm",
     )
 
-    # Правый белый блок
-    right_box.add_patch(
-        Rectangle(
-            (0.05, 0.56), 0.10, 0.22, facecolor=gray, edgecolor="black", linewidth=0.6
-        )
-    )
-    right_box.text(
-        0.23,
-        0.67,
+    _draw_legend_square(draw, 507, 830, GRAY)
+    draw.text(
+        (565, 847),
         f"Без ответа: {no_answer}",
-        ha="left",
-        va="center",
-        fontsize=14,
-        color="black",
-        fontweight="bold",
+        font=legend_font,
+        fill="black",
+        anchor="lm",
     )
 
-    right_box.text(
-        0.5,
-        0.25,
+    draw.text(
+        (657, 902),
         f"Всего фраз: {generated}",
-        ha="center",
-        va="center",
-        fontsize=14,
-        color="black",
-        fontweight="bold",
+        font=legend_font,
+        fill="black",
+        anchor="mm",
+    )
+
+    draw.text(
+        (WIDTH // 2, 1000),
+        f"Всего сгенерированных фраз: {generated}",
+        font=bottom_font,
+        fill="white",
+        anchor="mm",
     )
 
     image_path = get_statistics_image_path(user_id)
-    fig.savefig(
-        image_path,
-        dpi=160,
-        facecolor="black",
-        # bbox_inches="tight",
-        pad_inches=0.08,
-    )
-    plt.close(fig)
-
+    image.save(image_path)
     return image_path

@@ -28,3 +28,6 @@ def register_statistics_handlers(bot: TeleBot) -> None:
                 photo=photo,
                 reply_markup=generate_only_keyboard(),
             )
+
+
+print("STATISTICS HANDLER CALLED")
