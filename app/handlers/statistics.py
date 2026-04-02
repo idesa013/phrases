@@ -8,26 +8,32 @@ from app.services.stats_repository import get_user_stats
 def register_statistics_handlers(bot: TeleBot) -> None:
     @bot.message_handler(commands=["statistics"])
     def handle_statistics(message) -> None:
-        stats = get_user_stats(message.from_user.id)
+        try:
+            bot.send_message(message.chat.id, "statistics: start")
 
-        generated = stats["generated"]
-        right = stats["right"]
-        wrong = stats["wrong"]
+            stats = get_user_stats(message.from_user.id)
+            bot.send_message(message.chat.id, f"statistics: stats ok -> {stats}")
 
-        chart_path = render_statistics_chart(
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            generated=generated,
-            right=right,
-            wrong=wrong,
-        )
+            chart_path = render_statistics_chart(
+                user_id=message.from_user.id,
+                username=message.from_user.username,
+                generated=stats["generated"],
+                right=stats["right"],
+                wrong=stats["wrong"],
+            )
+            bot.send_message(message.chat.id, f"statistics: image ok -> {chart_path}")
 
-        with open(chart_path, "rb") as photo:
-            bot.send_photo(
-                chat_id=message.chat.id,
-                photo=photo,
+            with open(chart_path, "rb") as photo:
+                bot.send_photo(
+                    chat_id=message.chat.id,
+                    photo=photo,
+                    reply_markup=generate_only_keyboard(),
+                )
+
+        except Exception as error:
+            bot.send_message(
+                message.chat.id,
+                f"statistics error: {type(error).__name__}: {error}",
                 reply_markup=generate_only_keyboard(),
             )
-
-
-print("STATISTICS HANDLER CALLED")
+            raise

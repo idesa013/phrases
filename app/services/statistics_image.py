@@ -28,7 +28,10 @@ def _safe_username(username: str | None) -> str:
 
 
 def _load_font(path: Path, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(path), size)
+    try:
+        return ImageFont.truetype(str(path), size)
+    except Exception:
+        return ImageFont.load_default()
 
 
 def _draw_centered_text(
