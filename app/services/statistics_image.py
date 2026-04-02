@@ -44,6 +44,34 @@ def _draw_centered_text(
     draw.text(xy, text, font=font, fill=fill, anchor="mm")
 
 
+def draw_text_with_shadow(
+    draw,
+    position,
+    text,
+    font,
+    fill,
+    shadow_color=(0, 0, 0),
+    shadow_offset=(3, 3),
+):
+    x, y = position
+
+    # тень
+    draw.text(
+        (x + shadow_offset[0], y + shadow_offset[1]),
+        text,
+        font=font,
+        fill=shadow_color,
+    )
+
+    # основной текст
+    draw.text(
+        (x, y),
+        text,
+        font=font,
+        fill=fill,
+    )
+
+
 def _draw_box(
     draw: ImageDraw.ImageDraw,
     box: tuple[int, int, int, int],
@@ -102,23 +130,54 @@ def render_statistics_chart(
     draw = ImageDraw.Draw(image)
 
     title_font = _load_font(FONT_HINT_BOLD_PATH, 44)
+    username_font = _load_font(FONT_HINT_BOLD_PATH, 50)
     percent_font = _load_font(FONT_HINT_BOLD_PATH, 42)
-    legend_font = _load_font(FONT_HINT_BOLD_PATH, 22)
-    bottom_font = _load_font(FONT_HINT_BOLD_PATH, 24)
+    legend_font = _load_font(FONT_HINT_BOLD_PATH, 26)
+    bottom_font = _load_font(FONT_HINT_BOLD_PATH, 30)
 
     username_text = _safe_username(username)
 
-    title = f"Статистика ответов\nпользователя @{username_text}"
-    _draw_centered_text(
+    title_line = "Статистика ответов пользователя"
+    username_line = f"@{username_text}"
+
+    line_spacing = 15
+
+    # размеры строк
+    bbox1 = draw.textbbox((0, 0), title_line, font=title_font)
+    h1 = bbox1[3] - bbox1[1]
+
+    bbox2 = draw.textbbox((0, 0), username_line, font=title_font)
+    h2 = bbox2[3] - bbox2[1]
+
+    total_height = h1 + h2 + line_spacing
+
+    start_y = 110 - total_height // 2
+
+    # --- первая строка ---
+    w1 = bbox1[2] - bbox1[0]
+    x1 = WIDTH // 2 - w1 // 2
+
+    draw.text(
+        (x1, start_y),
+        title_line,
+        font=title_font,
+        fill=YELLOW,
+    )
+
+    # --- вторая строка ---
+    w2 = bbox2[2] - bbox2[0]
+    x2 = WIDTH // 2 - w2 // 2
+
+    draw_text_with_shadow(
         draw,
-        (WIDTH // 2, 95),
-        title,
-        title_font,
+        (x2, start_y + h1 + line_spacing),
+        username_line,
+        username_font if "username_font" in locals() else title_font,
         YELLOW,
     )
 
     # Круг
-    center = (WIDTH // 2, 430)
+    center = (WIDTH // 2, 480)
     radius = 285
     pie_bbox = (
         center[0] - radius,
@@ -159,8 +218,8 @@ def render_statistics_chart(
             start_angle = end_angle
 
     # Нижние белые блоки
-    left_box = (70, 805, 415, 930)
-    right_box = (485, 805, 830, 930)
+    left_box = (70, 810, 415, 940)
+    right_box = (485, 810, 830, 940)
 
     _draw_box(draw, left_box, WHITE)
     _draw_box(draw, right_box, WHITE)

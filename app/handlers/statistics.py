@@ -9,10 +9,10 @@ def register_statistics_handlers(bot: TeleBot) -> None:
     @bot.message_handler(commands=["statistics"])
     def handle_statistics(message) -> None:
         try:
-            bot.send_message(message.chat.id, "statistics: start")
+            # bot.send_message(message.chat.id, "statistics: start")
 
             stats = get_user_stats(message.from_user.id)
-            bot.send_message(message.chat.id, f"statistics: stats ok -> {stats}")
+            # bot.send_message(message.chat.id, f"statistics: stats ok -> {stats}")
 
             chart_path = render_statistics_chart(
                 user_id=message.from_user.id,
@@ -21,7 +21,7 @@ def register_statistics_handlers(bot: TeleBot) -> None:
                 right=stats["right"],
                 wrong=stats["wrong"],
             )
-            bot.send_message(message.chat.id, f"statistics: image ok -> {chart_path}")
+            # bot.send_message(message.chat.id, f"statistics: image ok -> {chart_path}")
 
             with open(chart_path, "rb") as photo:
                 bot.send_photo(
