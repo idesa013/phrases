@@ -17,6 +17,27 @@ from app.services.stats_repository import (
 from app.utils.text import normalize_answer
 
 
+MENU_BUTTONS = {
+    "Register",
+    "Single game",
+    "Multi game",
+    "Create",
+    "Join",
+    "Ended",
+    "Back",
+    "Start Game",
+    "Cancel",
+    "2",
+    "3",
+    "4",
+    "5",
+    "Admin-panel",
+    "User List",
+    "current statistic",
+    "drop statistic",
+}
+
+
 def register_message_handlers(bot: TeleBot) -> None:
     @bot.message_handler(commands=["start", "help"])
     def handle_start(message) -> None:
@@ -106,20 +127,7 @@ def register_message_handlers(bot: TeleBot) -> None:
         content_types=["text"],
     )
     def handle_answer(message) -> None:
-        if message.text in {
-            "Register",
-            "Single game",
-            "Multi game",
-            "Create",
-            "Join",
-            "Ended",
-            "Back",
-            "Админ-панель",
-            "Список пользователей",
-            "Назад",
-            "current statistic",
-            "drop statistic",
-        }:
+        if message.text in MENU_BUTTONS:
             return
 
         if not is_user_registered(message.from_user.id):
