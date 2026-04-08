@@ -2,17 +2,13 @@ from telebot import TeleBot
 
 from app.config import ADMIN_IDS
 from app.keyboards.inline import generate_only_keyboard
-from app.keyboards.reply import (
-    game_mode_keyboard,
-    multi_game_keyboard,
-    registration_keyboard,
-)
+from app.keyboards.reply import game_mode_keyboard, registration_keyboard
 from app.services.game_state import get_state
+from app.services.menu_state import get_menu_state, set_menu_state
 from app.services.stats_repository import (
     increment_right,
     increment_wrong,
     is_user_registered,
-    register_user,
 )
 from app.utils.text import normalize_answer
 
@@ -39,89 +35,6 @@ MENU_BUTTONS = {
 
 
 def register_message_handlers(bot: TeleBot) -> None:
-    @bot.message_handler(commands=["start", "help"])
-    def handle_start(message) -> None:
-        if not is_user_registered(message.from_user.id):
-            bot.send_message(
-                message.chat.id,
-                "Для начала нужно пройти регистрацию.",
-                reply_markup=registration_keyboard(),
-            )
-            return
-
-        is_admin = message.from_user.id in ADMIN_IDS
-        bot.send_message(
-            message.chat.id,
-            "Выбери режим игры.",
-            reply_markup=game_mode_keyboard(is_admin=is_admin),
-        )
-
-    @bot.message_handler(func=lambda message: message.text == "Register")
-    def handle_register(message) -> None:
-        register_user(
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            name=message.from_user.first_name,
-            surname=message.from_user.last_name,
-        )
-
-        is_admin = message.from_user.id in ADMIN_IDS
-        bot.send_message(
-            message.chat.id,
-            "Регистрация завершена.",
-            reply_markup=game_mode_keyboard(is_admin=is_admin),
-        )
-
-    @bot.message_handler(func=lambda message: message.text == "Single game")
-    def handle_single_game(message) -> None:
-        if not is_user_registered(message.from_user.id):
-            bot.send_message(
-                message.chat.id,
-                "Сначала зарегистрируйся.",
-                reply_markup=registration_keyboard(),
-            )
-            return
-
-        bot.send_message(
-            message.chat.id,
-            "Нажми кнопку ниже, чтобы сгенерировать фразу.",
-            reply_markup=generate_only_keyboard(),
-        )
-
-    @bot.message_handler(func=lambda message: message.text == "Multi game")
-    def handle_multi_game(message) -> None:
-        if not is_user_registered(message.from_user.id):
-            bot.send_message(
-                message.chat.id,
-                "Сначала зарегистрируйся.",
-                reply_markup=registration_keyboard(),
-            )
-            return
-
-        is_admin = message.from_user.id in ADMIN_IDS
-        bot.send_message(
-            message.chat.id,
-            "Режим многопользовательской игры.\nВыбери действие:",
-            reply_markup=multi_game_keyboard(is_admin=is_admin),
-        )
-
-    @bot.message_handler(func=lambda message: message.text == "Back")
-    def handle_back(message) -> None:
-        if not is_user_registered(message.from_user.id):
-            bot.send_message(
-                message.chat.id,
-                "Сначала зарегистрируйся.",
-                reply_markup=registration_keyboard(),
-            )
-            return
-
-        is_admin = message.from_user.id in ADMIN_IDS
-        bot.send_message(
-            message.chat.id,
-            "Выбери режим игры.",
-            reply_markup=game_mode_keyboard(is_admin=is_admin),
-        )
-
     @bot.message_handler(
         func=lambda message: bool(message.text) and not message.text.startswith("/"),
         content_types=["text"],
@@ -131,10 +44,20 @@ def register_message_handlers(bot: TeleBot) -> None:
             return
 
         if not is_user_registered(message.from_user.id):
+            set_menu_state(message.from_user.id, "registration")
             bot.send_message(
                 message.chat.id,
                 "Сначала зарегистрируйся.",
                 reply_markup=registration_keyboard(),
+            )
+            return
+
+        if get_menu_state(message.from_user.id) != "single_game":
+            is_admin = message.from_user.id in ADMIN_IDS
+            bot.send_message(
+                message.chat.id,
+                "Выбери режим игры.",
+                reply_markup=game_mode_keyboard(is_admin=is_admin),
             )
             return
 

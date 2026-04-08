@@ -1,4 +1,4 @@
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import KeyboardButton, ReplyKeyboardMarkup
 
 
 def registration_keyboard() -> ReplyKeyboardMarkup:
@@ -13,8 +13,10 @@ def game_mode_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         KeyboardButton("Single game"),
         KeyboardButton("Multi game"),
     )
+
     if is_admin:
         keyboard.row(KeyboardButton("Admin-panel"))
+
     return keyboard
 
 
@@ -26,12 +28,11 @@ def multi_game_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         KeyboardButton("Ended"),
         KeyboardButton("Back"),
     )
+
     if is_admin:
         keyboard.row(KeyboardButton("Admin-panel"))
+
     return keyboard
-
-
-# --- CREATE FLOW ---
 
 
 def create_player_count_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
@@ -43,8 +44,10 @@ def create_player_count_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         KeyboardButton("5"),
     )
     keyboard.row(KeyboardButton("Back"))
+
     if is_admin:
         keyboard.row(KeyboardButton("Admin-panel"))
+
     return keyboard
 
 
@@ -54,12 +57,11 @@ def create_confirm_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         KeyboardButton("Start Game"),
         KeyboardButton("Back"),
     )
+
     if is_admin:
         keyboard.row(KeyboardButton("Admin-panel"))
+
     return keyboard
-
-
-# --- JOIN FLOW ---
 
 
 def join_confirm_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
@@ -68,28 +70,26 @@ def join_confirm_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         KeyboardButton("Start Game"),
         KeyboardButton("Back"),
     )
+
     if is_admin:
         keyboard.row(KeyboardButton("Admin-panel"))
+
     return keyboard
-
-
-# --- COMMON ---
 
 
 def cancel_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.row(KeyboardButton("Cancel"))
+
     if is_admin:
         keyboard.row(KeyboardButton("Admin-panel"))
+
     return keyboard
-
-
-# --- ADMIN ---
 
 
 def admin_main_keyboard() -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(
+    keyboard.row(
         KeyboardButton("User List"),
         KeyboardButton("Back"),
     )
@@ -98,7 +98,7 @@ def admin_main_keyboard() -> ReplyKeyboardMarkup:
 
 def admin_user_actions_keyboard() -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(
+    keyboard.row(
         KeyboardButton("current statistic"),
         KeyboardButton("drop statistic"),
         KeyboardButton("Back"),

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class MenuState:
-    current_menu: str = "main_menu"
+    current_menu: str = "root"
 
 
 _menu_states: dict[int, MenuState] = {}

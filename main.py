@@ -5,9 +5,9 @@ from app.config import BOT_TOKEN
 from app.handlers.admin import register_admin_handlers
 from app.handlers.callbacks import register_callback_handlers
 from app.handlers.game_menu import register_game_menu_handlers
+from app.handlers.messages import register_message_handlers
 from app.handlers.multi_callbacks import register_multi_callback_handlers
 from app.handlers.multi_messages import register_multi_message_handlers
-from app.handlers.messages import register_message_handlers
 from app.handlers.statistics import register_statistics_handlers
 from app.services.multi_repository import init_multi_db
 from app.services.phrase_updater import update_phrases

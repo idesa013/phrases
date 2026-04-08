@@ -19,12 +19,18 @@ class BaseModel(Model):
         database = database
 
 
+class MultiConfig(BaseModel):
+    id = AutoField()
+    key = CharField(unique=True)
+    value = IntegerField()
+
+
 class MultiGame(BaseModel):
     id = AutoField()
     creator_user_id = IntegerField()
     creator_username = CharField(null=True)
     max_players = IntegerField()
-    status = CharField(default="open")  # open, started, canceled, ended
+    status = CharField(default="open")
     created_at = CharField(default=lambda: datetime.now().strftime("%Y%m%d:%H%M"))
 
 
@@ -38,12 +44,32 @@ class MultiGamePlayer(BaseModel):
 
 def init_multi_db() -> None:
     database.connect(reuse_if_open=True)
-    database.create_tables([MultiGame, MultiGamePlayer])
-    database.close()
+    try:
+        database.create_tables([MultiConfig, MultiGame, MultiGamePlayer])
+
+        MultiConfig.get_or_create(
+            key="start_delay_seconds",
+            defaults={"value": 5},
+        )
+    finally:
+        database.close()
+
+
+def get_start_delay_seconds() -> int:
+    database.connect(reuse_if_open=True)
+    try:
+        config = MultiConfig.get_or_none(MultiConfig.key == "start_delay_seconds")
+        if config is None:
+            config = MultiConfig.create(key="start_delay_seconds", value=5)
+        return int(config.value)
+    finally:
+        database.close()
 
 
 def create_game(
-    creator_user_id: int, creator_username: str | None, max_players: int
+    creator_user_id: int,
+    creator_username: str | None,
+    max_players: int,
 ) -> MultiGame:
     database.connect(reuse_if_open=True)
     try:
@@ -53,11 +79,13 @@ def create_game(
             max_players=max_players,
             status="open",
         )
+
         MultiGamePlayer.create(
             game=game,
             user_id=creator_user_id,
             username=creator_username,
         )
+
         return game
     finally:
         database.close()
@@ -74,11 +102,13 @@ def list_open_games(limit: int = 15, offset: int = 0) -> list[dict]:
             .offset(offset)
         )
 
-        result = []
+        result: list[dict] = []
+
         for game in games:
             joined_count = (
                 MultiGamePlayer.select().where(MultiGamePlayer.game == game).count()
             )
+
             result.append(
                 {
                     "id": game.id,
@@ -88,6 +118,7 @@ def list_open_games(limit: int = 15, offset: int = 0) -> list[dict]:
                     "joined_count": joined_count,
                 }
             )
+
         return result
     finally:
         database.close()
@@ -112,11 +143,16 @@ def get_game(game_id: int) -> MultiGame | None:
 def get_game_participants(game_id: int) -> list[dict]:
     database.connect(reuse_if_open=True)
     try:
+        game = MultiGame.get_or_none(MultiGame.id == game_id)
+        if game is None:
+            return []
+
         players = (
             MultiGamePlayer.select()
-            .where(MultiGamePlayer.game == game_id)
+            .where(MultiGamePlayer.game == game)
             .order_by(MultiGamePlayer.id.asc())
         )
+
         return [
             {
                 "user_id": player.user_id,
@@ -131,9 +167,13 @@ def get_game_participants(game_id: int) -> list[dict]:
 def is_user_in_game(game_id: int, user_id: int) -> bool:
     database.connect(reuse_if_open=True)
     try:
+        game = MultiGame.get_or_none(MultiGame.id == game_id)
+        if game is None:
+            return False
+
         return (
             MultiGamePlayer.get_or_none(
-                (MultiGamePlayer.game == game_id) & (MultiGamePlayer.user_id == user_id)
+                (MultiGamePlayer.game == game) & (MultiGamePlayer.user_id == user_id)
             )
             is not None
         )
@@ -151,14 +191,16 @@ def join_game(game_id: int, user_id: int, username: str | None) -> tuple[bool, s
         if game.status != "open":
             return False, "Игра уже недоступна."
 
-        if MultiGamePlayer.get_or_none(
+        existing_player = MultiGamePlayer.get_or_none(
             (MultiGamePlayer.game == game) & (MultiGamePlayer.user_id == user_id)
-        ):
-            return False, "Ты уже в этой игре."
+        )
+        if existing_player is not None:
+            return False, "Ты уже присоединился к этой игре."
 
         joined_count = (
             MultiGamePlayer.select().where(MultiGamePlayer.game == game).count()
         )
+
         if joined_count >= game.max_players:
             return False, "В игре уже нет свободных мест."
 
@@ -167,6 +209,15 @@ def join_game(game_id: int, user_id: int, username: str | None) -> tuple[bool, s
             user_id=user_id,
             username=username,
         )
+
+        new_joined_count = (
+            MultiGamePlayer.select().where(MultiGamePlayer.game == game).count()
+        )
+
+        if new_joined_count >= game.max_players:
+            game.status = "ready"
+            game.save()
+
         return True, "ok"
     finally:
         database.close()
@@ -187,10 +238,31 @@ def cancel_game(game_id: int, user_id: int) -> bool:
         player = MultiGamePlayer.get_or_none(
             (MultiGamePlayer.game == game) & (MultiGamePlayer.user_id == user_id)
         )
-        if player:
-            player.delete_instance()
-            return True
+        if player is None:
+            return False
 
-        return False
+        player.delete_instance()
+
+        current_count = (
+            MultiGamePlayer.select().where(MultiGamePlayer.game == game).count()
+        )
+
+        if current_count < game.max_players and game.status == "ready":
+            game.status = "open"
+            game.save()
+
+        return True
+    finally:
+        database.close()
+
+
+def clear_game_players(game_id: int) -> None:
+    database.connect(reuse_if_open=True)
+    try:
+        game = MultiGame.get_or_none(MultiGame.id == game_id)
+        if game is None:
+            return
+
+        (MultiGamePlayer.delete().where(MultiGamePlayer.game == game).execute())
     finally:
         database.close()

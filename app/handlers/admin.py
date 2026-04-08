@@ -6,6 +6,7 @@ from app.keyboards.reply import (
     admin_user_actions_keyboard,
     game_mode_keyboard,
 )
+from app.services.menu_state import get_menu_state, set_menu_state
 from app.services.stats_repository import (
     get_user_by_stats_id,
     list_users_stats,
@@ -37,7 +38,7 @@ def format_user_stats_text(user) -> str:
     no_answer = max(0, user.generated - user.right - user.wrong)
     username = f"@{user.username}" if user.username else "—"
     return (
-        f"ID в таблице user_stats: {user.id}\n"
+        f"ID в таблице userstats: {user.id}\n"
         f"Telegram user_id: `{user.user_id}`\n"
         f"Username: {username}\n\n"
         f"Generated: {user.generated}\n"
@@ -54,9 +55,10 @@ def register_admin_handlers(bot: TeleBot) -> None:
             return
 
         clear_selected_user(message.from_user.id)
+        set_menu_state(message.from_user.id, "admin_menu")
         bot.send_message(
             message.chat.id,
-            "Админ-панель открыта.",
+            "Admin-panel открыт.",
             reply_markup=admin_main_keyboard(),
         )
 
@@ -66,29 +68,34 @@ def register_admin_handlers(bot: TeleBot) -> None:
     )
     def handle_admin_panel(message) -> None:
         clear_selected_user(message.from_user.id)
+        set_menu_state(message.from_user.id, "admin_menu")
         bot.send_message(
             message.chat.id,
-            "Админ-панель открыта.",
+            "Admin-panel открыт.",
             reply_markup=admin_main_keyboard(),
         )
 
     @bot.message_handler(
         func=lambda message: is_admin(message.from_user.id)
+        and get_menu_state(message.from_user.id) in {"admin_menu", "admin_list"}
         and message.text == "User List"
     )
     def handle_users_list(message) -> None:
         users = list_users_stats(limit=100)
+
+        set_menu_state(message.from_user.id, "admin_list")
+
         if not users:
             bot.send_message(
                 message.chat.id,
-                "В таблице user_stats пока нет пользователей.",
+                "В таблице userstats пока нет пользователей.",
                 reply_markup=admin_main_keyboard(),
             )
             return
 
         lines = [
             "Список пользователей",
-            "Отправь цифрой ID из таблицы user_stats:\n",
+            "Отправь цифрой ID из таблицы userstats:\n",
         ]
 
         for user in users:
@@ -106,6 +113,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
 
     @bot.message_handler(
         func=lambda message: is_admin(message.from_user.id)
+        and get_menu_state(message.from_user.id) == "admin_list"
         and bool(message.text)
         and message.text.isdigit()
     )
@@ -116,12 +124,14 @@ def register_admin_handlers(bot: TeleBot) -> None:
         if user is None:
             bot.send_message(
                 message.chat.id,
-                "Пользователь с таким ID в таблице user_stats не найден.",
+                "Пользователь с таким ID в таблице userstats не найден.",
                 reply_markup=admin_main_keyboard(),
             )
             return
 
         set_selected_user(message.from_user.id, stats_id)
+        set_menu_state(message.from_user.id, "admin_user_actions")
+
         bot.send_message(
             message.chat.id,
             "Пользователь выбран.\nТеперь доступны действия:",
@@ -130,14 +140,16 @@ def register_admin_handlers(bot: TeleBot) -> None:
 
     @bot.message_handler(
         func=lambda message: is_admin(message.from_user.id)
+        and get_menu_state(message.from_user.id) == "admin_user_actions"
         and message.text == "current statistic"
     )
     def handle_current_statistic(message) -> None:
         stats_id = get_selected_user_id(message.from_user.id)
         if stats_id is None:
+            set_menu_state(message.from_user.id, "admin_menu")
             bot.send_message(
                 message.chat.id,
-                "Сначала выбери пользователя по ID из таблицы user_stats.",
+                "Сначала выбери пользователя по ID.",
                 reply_markup=admin_main_keyboard(),
             )
             return
@@ -145,6 +157,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
         user = get_user_by_stats_id(stats_id)
         if user is None:
             clear_selected_user(message.from_user.id)
+            set_menu_state(message.from_user.id, "admin_menu")
             bot.send_message(
                 message.chat.id,
                 "Пользователь больше не найден.",
@@ -160,14 +173,16 @@ def register_admin_handlers(bot: TeleBot) -> None:
 
     @bot.message_handler(
         func=lambda message: is_admin(message.from_user.id)
+        and get_menu_state(message.from_user.id) == "admin_user_actions"
         and message.text == "drop statistic"
     )
     def handle_drop_statistic(message) -> None:
         stats_id = get_selected_user_id(message.from_user.id)
         if stats_id is None:
+            set_menu_state(message.from_user.id, "admin_menu")
             bot.send_message(
                 message.chat.id,
-                "Сначала выбери пользователя по ID из таблицы user_stats.",
+                "Сначала выбери пользователя по ID.",
                 reply_markup=admin_main_keyboard(),
             )
             return
@@ -175,6 +190,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
         success = reset_user_stats_by_stats_id(stats_id)
         if not success:
             clear_selected_user(message.from_user.id)
+            set_menu_state(message.from_user.id, "admin_menu")
             bot.send_message(
                 message.chat.id,
                 "Не удалось сбросить статистику: пользователь не найден.",
@@ -190,12 +206,20 @@ def register_admin_handlers(bot: TeleBot) -> None:
         )
 
     @bot.message_handler(
-        func=lambda message: is_admin(message.from_user.id) and message.text == "Back"
+        func=lambda message: message.text == "Back"
+        and is_admin(message.from_user.id)
+        and get_menu_state(message.from_user.id)
+        in {
+            "admin_menu",
+            "admin_list",
+            "admin_user_actions",
+        }
     )
-    def handle_back(message) -> None:
+    def handle_admin_back(message) -> None:
         clear_selected_user(message.from_user.id)
+        set_menu_state(message.from_user.id, "root")
         bot.send_message(
             message.chat.id,
-            "Выход из админ-панели.",
+            "Выбери режим игры.",
             reply_markup=game_mode_keyboard(is_admin=True),
         )
