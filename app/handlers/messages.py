@@ -2,29 +2,49 @@ from telebot import TeleBot
 
 from app.config import ADMIN_IDS
 from app.keyboards.inline import generate_only_keyboard
-from app.keyboards.reply import admin_entry_keyboard
+from app.keyboards.reply import game_mode_keyboard, multi_game_keyboard
 from app.services.game_state import get_state
-from app.utils.text import normalize_answer
 from app.services.stats_repository import (
     increment_right,
     increment_wrong,
 )
+from app.utils.text import normalize_answer
 
 
 def register_message_handlers(bot: TeleBot) -> None:
     @bot.message_handler(commands=["start", "help"])
     def handle_start(message) -> None:
-        if message.from_user.id in ADMIN_IDS:
-            bot.send_message(
-                message.chat.id,
-                "Админ-доступ активен.",
-                reply_markup=admin_entry_keyboard(),
-            )
+        is_admin = message.from_user.id in ADMIN_IDS
+        bot.send_message(
+            message.chat.id,
+            "Выбери режим игры.",
+            reply_markup=game_mode_keyboard(is_admin=is_admin),
+        )
 
+    @bot.message_handler(func=lambda message: message.text == "Single game")
+    def handle_single_game(message) -> None:
         bot.send_message(
             message.chat.id,
             "Нажми кнопку ниже, чтобы сгенерировать фразу.",
             reply_markup=generate_only_keyboard(),
+        )
+
+    @bot.message_handler(func=lambda message: message.text == "Multi game")
+    def handle_multi_game(message) -> None:
+        is_admin = message.from_user.id in ADMIN_IDS
+        bot.send_message(
+            message.chat.id,
+            "Режим многопользовательской игры.\nВыбери действие:",
+            reply_markup=multi_game_keyboard(is_admin=is_admin),
+        )
+
+    @bot.message_handler(func=lambda message: message.text == "Back")
+    def handle_back_from_multi(message) -> None:
+        is_admin = message.from_user.id in ADMIN_IDS
+        bot.send_message(
+            message.chat.id,
+            "Возврат в главное меню режимов игры.",
+            reply_markup=game_mode_keyboard(is_admin=is_admin),
         )
 
     @bot.message_handler(
@@ -32,20 +52,32 @@ def register_message_handlers(bot: TeleBot) -> None:
         content_types=["text"],
     )
     def handle_answer(message) -> None:
+        if message.text in {
+            "Create",
+            "Join",
+            "Ended",
+            "Админ-панель",
+            "Список пользователей",
+            "Назад",
+            "current statistic",
+            "drop statistic",
+        }:
+            return
+
         state = get_state(message.from_user.id)
 
         if not state.waiting_for_answer or not state.phrase:
+            is_admin = message.from_user.id in ADMIN_IDS
             bot.send_message(
                 message.chat.id,
-                "Нажми кнопку ниже, чтобы сгенерировать фразу.",
-                reply_markup=generate_only_keyboard(),
+                "Выбери режим игры.",
+                reply_markup=game_mode_keyboard(is_admin=is_admin),
             )
             return
 
         user_answer = normalize_answer(message.text or "")
         correct_answer = normalize_answer(state.phrase)
         image_message_id = state.image_message_id
-
         state.waiting_for_answer = False
 
         if image_message_id:

@@ -1,18 +1,16 @@
 from telebot import TeleBot
 
 from app.config import ADMIN_IDS
-from app.keyboards.inline import generate_only_keyboard
 from app.keyboards.reply import (
-    admin_entry_keyboard,
     admin_main_keyboard,
     admin_user_actions_keyboard,
+    game_mode_keyboard,
 )
 from app.services.stats_repository import (
     get_user_by_stats_id,
     list_users_stats,
     reset_user_stats_by_stats_id,
 )
-
 
 _admin_context: dict[int, dict] = {}
 
@@ -38,15 +36,14 @@ def clear_selected_user(admin_id: int) -> None:
 def format_user_stats_text(user) -> str:
     no_answer = max(0, user.generated - user.right - user.wrong)
     username = f"@{user.username}" if user.username else "—"
-
     return (
-        f"ID в таблице userstats: <b>{user.id}</b>\n"
-        f"Telegram user_id: <code>{user.user_id}</code>\n"
+        f"ID в таблице userstats: {user.id}\n"
+        f"Telegram user_id: `{user.user_id}`\n"
         f"Username: {username}\n\n"
-        f"Generated: <b>{user.generated}</b>\n"
-        f"Right: <b>{user.right}</b>\n"
-        f"Wrong: <b>{user.wrong}</b>\n"
-        f"No answer: <b>{no_answer}</b>"
+        f"Generated: {user.generated}\n"
+        f"Right: {user.right}\n"
+        f"Wrong: {user.wrong}\n"
+        f"No answer: {no_answer}"
     )
 
 
@@ -81,7 +78,6 @@ def register_admin_handlers(bot: TeleBot) -> None:
     )
     def handle_users_list(message) -> None:
         users = list_users_stats(limit=100)
-
         if not users:
             bot.send_message(
                 message.chat.id,
@@ -91,14 +87,15 @@ def register_admin_handlers(bot: TeleBot) -> None:
             return
 
         lines = [
-            "<b>Список пользователей</b>",
+            "Список пользователей",
             "Отправь цифрой ID из таблицы userstats:\n",
         ]
+
         for user in users:
             username = f"@{user['username']}" if user["username"] else "—"
             lines.append(
                 f"{user['id']} — {username} "
-                f"(tg: <code>{user['user_id']}</code>, gen: {user['generated']})"
+                f"(tg: `{user['user_id']}`, gen: {user['generated']})"
             )
 
         bot.send_message(
@@ -200,10 +197,5 @@ def register_admin_handlers(bot: TeleBot) -> None:
         bot.send_message(
             message.chat.id,
             "Выход из админ-панели.",
-            reply_markup=admin_entry_keyboard(),
-        )
-        bot.send_message(
-            message.chat.id,
-            "Игровая кнопка ниже:",
-            reply_markup=generate_only_keyboard(),
+            reply_markup=game_mode_keyboard(is_admin=True),
         )
