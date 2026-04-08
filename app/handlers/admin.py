@@ -74,7 +74,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
 
     @bot.message_handler(
         func=lambda message: is_admin(message.from_user.id)
-        and message.text == "Список пользователей"
+        and message.text == "User List"
     )
     def handle_users_list(message) -> None:
         users = list_users_stats(limit=100)
@@ -190,7 +190,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
         )
 
     @bot.message_handler(
-        func=lambda message: is_admin(message.from_user.id) and message.text == "Назад"
+        func=lambda message: is_admin(message.from_user.id) and message.text == "Back"
     )
     def handle_back(message) -> None:
         clear_selected_user(message.from_user.id)
