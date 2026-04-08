@@ -37,7 +37,7 @@ def format_user_stats_text(user) -> str:
     no_answer = max(0, user.generated - user.right - user.wrong)
     username = f"@{user.username}" if user.username else "—"
     return (
-        f"ID в таблице userstats: {user.id}\n"
+        f"ID в таблице user_stats: {user.id}\n"
         f"Telegram user_id: `{user.user_id}`\n"
         f"Username: {username}\n\n"
         f"Generated: {user.generated}\n"
@@ -62,7 +62,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
 
     @bot.message_handler(
         func=lambda message: is_admin(message.from_user.id)
-        and message.text == "Админ-панель"
+        and message.text == "Admin-panel"
     )
     def handle_admin_panel(message) -> None:
         clear_selected_user(message.from_user.id)
@@ -81,14 +81,14 @@ def register_admin_handlers(bot: TeleBot) -> None:
         if not users:
             bot.send_message(
                 message.chat.id,
-                "В таблице userstats пока нет пользователей.",
+                "В таблице user_stats пока нет пользователей.",
                 reply_markup=admin_main_keyboard(),
             )
             return
 
         lines = [
             "Список пользователей",
-            "Отправь цифрой ID из таблицы userstats:\n",
+            "Отправь цифрой ID из таблицы user_stats:\n",
         ]
 
         for user in users:
@@ -116,7 +116,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
         if user is None:
             bot.send_message(
                 message.chat.id,
-                "Пользователь с таким ID в таблице userstats не найден.",
+                "Пользователь с таким ID в таблице user_stats не найден.",
                 reply_markup=admin_main_keyboard(),
             )
             return
@@ -137,7 +137,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
         if stats_id is None:
             bot.send_message(
                 message.chat.id,
-                "Сначала выбери пользователя по ID из таблицы userstats.",
+                "Сначала выбери пользователя по ID из таблицы user_stats.",
                 reply_markup=admin_main_keyboard(),
             )
             return
@@ -167,7 +167,7 @@ def register_admin_handlers(bot: TeleBot) -> None:
         if stats_id is None:
             bot.send_message(
                 message.chat.id,
-                "Сначала выбери пользователя по ID из таблицы userstats.",
+                "Сначала выбери пользователя по ID из таблицы user_stats.",
                 reply_markup=admin_main_keyboard(),
             )
             return

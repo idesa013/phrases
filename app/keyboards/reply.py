@@ -1,16 +1,20 @@
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
 
+def registration_keyboard() -> ReplyKeyboardMarkup:
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row(KeyboardButton("Register"))
+    return keyboard
+
+
 def game_mode_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.row(
         KeyboardButton("Single game"),
         KeyboardButton("Multi game"),
     )
-
     if is_admin:
-        keyboard.row(KeyboardButton("Админ-панель"))
-
+        keyboard.row(KeyboardButton("Admin-panel"))
     return keyboard
 
 
@@ -22,24 +26,16 @@ def multi_game_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         KeyboardButton("Ended"),
         KeyboardButton("Back"),
     )
-
     if is_admin:
-        keyboard.row(KeyboardButton("Админ-панель"))
-
-    return keyboard
-
-
-def admin_entry_keyboard() -> ReplyKeyboardMarkup:
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton("Админ-панель"))
+        keyboard.row(KeyboardButton("Admin-panel"))
     return keyboard
 
 
 def admin_main_keyboard() -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(
-        KeyboardButton("Список пользователей"),
-        KeyboardButton("Назад"),
+        KeyboardButton("User List"),
+        KeyboardButton("Back"),
     )
     return keyboard
 
@@ -49,6 +45,6 @@ def admin_user_actions_keyboard() -> ReplyKeyboardMarkup:
     keyboard.add(
         KeyboardButton("current statistic"),
         KeyboardButton("drop statistic"),
-        KeyboardButton("Назад"),
+        KeyboardButton("Back"),
     )
     return keyboard
