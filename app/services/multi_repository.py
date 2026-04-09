@@ -165,6 +165,54 @@ def count_open_games() -> int:
         database.close()
 
 
+def list_user_ended_games(user_id: int, limit: int = 15, offset: int = 0) -> list[dict]:
+    database.connect(reuse_if_open=True)
+    try:
+        query = (
+            MultiGame.select(MultiGame)
+            .join(MultiGamePlayer, on=(MultiGamePlayer.game == MultiGame.id))
+            .where((MultiGame.status == "ended") & (MultiGamePlayer.user_id == user_id))
+            .order_by(MultiGame.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+
+        result: list[dict] = []
+        seen_ids: set[int] = set()
+
+        for game in query:
+            if game.id in seen_ids:
+                continue
+            seen_ids.add(game.id)
+            result.append(
+                {
+                    "id": game.id,
+                    "creator_user_id": game.creator_user_id,
+                    "creator_username": game.creator_username or "unknown",
+                    "status": game.status,
+                    "created_at": game.created_at,
+                }
+            )
+
+        return result
+    finally:
+        database.close()
+
+
+def count_user_ended_games(user_id: int) -> int:
+    database.connect(reuse_if_open=True)
+    try:
+        query = (
+            MultiGame.select(MultiGame.id)
+            .join(MultiGamePlayer, on=(MultiGamePlayer.game == MultiGame.id))
+            .where((MultiGame.status == "ended") & (MultiGamePlayer.user_id == user_id))
+            .distinct()
+        )
+        return query.count()
+    finally:
+        database.close()
+
+
 def get_game(game_id: int) -> MultiGame | None:
     database.connect(reuse_if_open=True)
     try:

@@ -31,6 +31,7 @@ from app.services.image_generator import render_phrase_image
 from app.services.stats_repository import is_user_registered
 from app.utils.text import normalize_answer
 from app.services.multi_statistics_image import render_multi_statistics_image
+from app.services.multi_results_view import send_game_results
 
 
 def _format_username(username: str | None) -> str:
@@ -77,13 +78,13 @@ def _finish_game(bot: TeleBot, game_id: int) -> None:
     set_game_status(game_id, "ended")
 
     # 👇 теперь передаём количество раундов
-    leaderboard = get_game_leaderboard(game_id)
-    text = _build_leaderboard_text(game_id, runtime.total_rounds)
-    stat_image_path = render_multi_statistics_image(
-        game_id=game_id,
-        total_rounds=runtime.total_rounds,
-        leaderboard=leaderboard,
-    )
+    # leaderboard = get_game_leaderboard(game_id)
+    # text = _build_leaderboard_text(game_id, runtime.total_rounds)
+    # stat_image_path = render_multi_statistics_image(
+    #     game_id=game_id,
+    #     total_rounds=runtime.total_rounds,
+    #     leaderboard=leaderboard,
+    # )
 
     for participant in participants:
         user_id = participant["user_id"]
@@ -92,13 +93,12 @@ def _finish_game(bot: TeleBot, game_id: int) -> None:
         reset_multi_state(user_id)
         set_menu_state(user_id, "multi_menu")
 
-        with open(stat_image_path, "rb") as photo:
-            bot.send_photo(
-                user_id,
-                photo,
-                caption=text,
-                reply_markup=multi_game_keyboard(is_admin=is_admin),
-            )
+        send_game_results(
+            bot=bot,
+            chat_id=user_id,
+            game_id=game_id,
+            is_admin=is_admin,
+        )
 
     remove_runtime_state(game_id)
 

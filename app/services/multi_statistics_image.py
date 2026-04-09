@@ -45,9 +45,9 @@ def render_multi_statistics_image(
     total_rounds: int,
     leaderboard: list[dict],
 ) -> Path:
-    width = 1200
+    width = 1000
     row_height = 95
-    top_block_height = 170
+    top_block_height = 220
     bottom_padding = 50
     height = top_block_height + max(1, len(leaderboard)) * row_height + bottom_padding
 
@@ -55,9 +55,9 @@ def render_multi_statistics_image(
     draw = ImageDraw.Draw(image)
 
     title_font = _get_font(42, bold=True)
-    subtitle_font = _get_font(28, bold=False)
-    row_font = _get_font(28, bold=False)
-    row_bold_font = _get_font(28, bold=True)
+    subtitle_font = _get_font(30, bold=False)
+    row_font = _get_font(33, bold=False)
+    row_bold_font = _get_font(33, bold=True)
 
     white = "white"
     gray = "#bdbdbd"
@@ -68,11 +68,13 @@ def render_multi_statistics_image(
     line_color = "#2f2f2f"
 
     # Заголовок
-    draw.text((50, 35), f"Игра № {game_id} окончена", font=title_font, fill=white)
-    draw.text((50, 95), f"Всего заданий: {total_rounds}", font=subtitle_font, fill=gray)
+    draw.text((50, 35), f"Игра № {game_id}", font=title_font, fill=white)
+    draw.text(
+        (50, 100), f"Всего заданий: {total_rounds}", font=subtitle_font, fill=gray
+    )
 
     # Подзаголовок
-    draw.text((50, 140), "Статистика ответов игроков", font=subtitle_font, fill=white)
+    draw.text((50, 170), "Статистика ответов игроков", font=subtitle_font, fill=white)
 
     y = top_block_height
 
@@ -88,8 +90,8 @@ def render_multi_statistics_image(
             fill=bg,
         )
 
-        draw.text((60, y + 20), f"{index}.", font=row_bold_font, fill=white)
-        draw.text((115, y + 20), username, font=row_font, fill=white)
+        draw.text((60, y + 27), f"{index}.", font=row_bold_font, fill=white)
+        draw.text((115, y + 27), username, font=row_font, fill=white)
 
         right_text = f"Правильных: {right}"
         wrong_text = f"Неправильных: {wrong}"
@@ -103,8 +105,8 @@ def render_multi_statistics_image(
         wrong_x = width - 70 - wrong_width
         right_x = wrong_x - 45 - right_width
 
-        draw.text((right_x, y + 20), right_text, font=row_font, fill=green)
-        draw.text((wrong_x, y + 20), wrong_text, font=row_font, fill=red)
+        draw.text((right_x, y + 27), right_text, font=row_font, fill=green)
+        draw.text((wrong_x, y + 27), wrong_text, font=row_font, fill=red)
 
         draw.line(
             (50, y + row_height - 15, width - 50, y + row_height - 15),
