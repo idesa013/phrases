@@ -45,7 +45,7 @@ def render_multi_statistics_image(
     total_rounds: int,
     leaderboard: list[dict],
 ) -> Path:
-    width = 1000
+    width = 1100
     row_height = 95
     top_block_height = 220
     bottom_padding = 50
