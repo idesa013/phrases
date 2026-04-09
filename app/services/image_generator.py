@@ -11,7 +11,6 @@ from app.config import FONT_MAIN_PATH, IMAGES_DIR
 if not hasattr(inspect, "getargspec"):
     inspect.getargspec = inspect.getfullargspec
 
-
 COLORS = [
     "#ff3b30",
     "#34c759",
@@ -26,90 +25,65 @@ COLORS = [
     "#5ac8fa",
 ]
 
+VOWELS = "АЕЁИОУЫЭЮЯ"
+
 
 def get_phrase_image_path(user_id: int) -> Path:
     return IMAGES_DIR / f"phrase_{user_id}.png"
 
 
-VOWELS = "АЕЁИОУЫЭЮЯ"
-CONSONANTS = "БВГДЖЗЙКЛМНПРСТФХЦЧШЩ"
-
-
 def split_into_syllables(word: str, dic: pyphen.Pyphen) -> list[str]:
-    syllables = dic.inserted(word.upper(), hyphen="•").split("•")
-    syllables = [part for part in syllables if part]
-    result: list[str] = []
-    vowels = "АЕЁИОУЫЭЮЯ"
-
-    for item in syllables:
-        if item[0] in vowels and len(item) != 2:
-            result.append(item[0])
-            tail = item[1:]
-            if tail:
-                result.append(tail)
-        elif len(item) >= 2 and item[-1] in vowels and item[-2] in vowels:
-            head = item[:-1]
-            if head:
-                result.append(head)
-            result.append(item[-1])
-        else:
-            result.append(item)
-
-    return [part for part in result if part]
-
-
-def starts_with_two_consonants(text: str) -> bool:
-    if len(text) < 2:
-        return False
-    return text[0] in CONSONANTS and text[1] in CONSONANTS
-
-
-def rebalance_single_letter_parts(parts: list[str]) -> list[str]:
     """
-    Если слог состоит из одной буквы, а следующий начинается с двух согласных,
-    переносим первую согласную следующего слога к однобуквенному слогу.
+    Разбивает слово на части и нормализует односимвольные куски
+    только внутри этого же слова.
 
     Пример:
-        ["МЕ", "ТЬ", "СПЕХ", "У", "И"] -> ["МЕ", "ТЬ", "ПЕХ", "СУ", "И"]
-    или
-        ["МЕ", "ТЬ", "СПЕХ", "У", "И"] -> ["МЕ", "ТЬ", "СУ", "ПЕХ", "И"]
-    в зависимости от позиции после shuffle.
-
-    По твоему правилу:
-        ["...","У","СПЕХ", ...] -> ["...","СУ","ПЕХ", ...]
+    ["Я", "ЗЫК"] -> ["ЯЗ", "ЫК"]
     """
-    if len(parts) < 2:
-        return parts
+    parts = dic.inserted(word.upper(), hyphen="•").split("•")
+    parts = [part for part in parts if part]
+
+    if not parts:
+        return [word.upper()]
+
+    return rebalance_single_letter_parts_in_word(parts)
+
+
+def rebalance_single_letter_parts_in_word(parts: list[str]) -> list[str]:
+    """
+    Перебалансирует односимвольные части только внутри одного слова.
+
+    Примеры:
+    ["Я", "ЗЫК"] -> ["ЯЗ", "ЫК"]
+    ["Д", "ЛИН", "НЫЙ"] -> ["ДЛ", "ИН", "НЫЙ"]
+
+    Ничего не переносит между словами.
+    """
+    if len(parts) <= 1:
+        return parts[:]
 
     result = parts[:]
+    index = 0
 
-    for index in range(len(result) - 1):
-        current_part = result[index]
+    while index < len(result) - 1:
+        current = result[index]
         next_part = result[index + 1]
 
-        if len(current_part) != 1:
-            continue
+        if len(current) == 1 and len(next_part) >= 2:
+            result[index] = current + next_part[0]
+            result[index + 1] = next_part[1:]
 
-        if not starts_with_two_consonants(next_part):
-            continue
+            if not result[index + 1]:
+                result.pop(index + 1)
+                continue
 
-        moved_char = next_part[0]
-        result[index] = moved_char + current_part
-        result[index + 1] = next_part[1:]
+        index += 1
+
+    if len(result) >= 2 and len(result[-1]) == 1:
+        result[-2] += result[-1]
+        result.pop()
 
     return [part for part in result if part]
-
-
-def normalize_shuffled_parts(parts: list[str]) -> list[str]:
-    normalized = parts[:]
-
-    for _ in range(3):
-        updated = rebalance_single_letter_parts(normalized)
-        if updated == normalized:
-            break
-        normalized = updated
-
-    return normalized
 
 
 def similarity(left: str, right: str) -> float:
@@ -124,10 +98,8 @@ def looks_like_original(candidate: str, originals: tuple[str, str]) -> bool:
 
         if candidate_lower == original_lower:
             return True
-
         if candidate_lower in original_lower or original_lower in candidate_lower:
             return True
-
         if similarity(candidate_lower, original_lower) >= 0.72:
             return True
 
@@ -151,67 +123,78 @@ def contains_original_word_in_any_split(
 
         if left_word in normalized_originals:
             return True
-
         if right_word in normalized_originals:
             return True
 
     return False
 
 
-def build_shuffled_parts(phrase: str) -> list[str]:
+def build_shuffled_parts(phrase: str) -> list[dict]:
+    """
+    Возвращает список словарей:
+    {"text": <кусок>, "word_index": 0|1}
+
+    Это нужно, чтобы потом разложить на 2 строки так,
+    чтобы в каждой строке были части обоих слов.
+    """
     first_word, second_word = phrase.split()
-    originals = (first_word, second_word)
-
+    originals = (first_word.upper(), second_word.upper())
     dic = pyphen.Pyphen(lang="ru")
-    base_syllables = split_into_syllables(first_word, dic) + split_into_syllables(
-        second_word, dic
-    )
 
-    if len(base_syllables) < 4:
-        shuffled = base_syllables[:]
+    first_parts = split_into_syllables(first_word, dic)
+    second_parts = split_into_syllables(second_word, dic)
+
+    base_parts = [{"text": part, "word_index": 0} for part in first_parts] + [
+        {"text": part, "word_index": 1} for part in second_parts
+    ]
+
+    base_texts = [item["text"] for item in base_parts]
+
+    if len(base_parts) < 4:
+        shuffled = base_parts[:]
         random.shuffle(shuffled)
-        normalized = normalize_shuffled_parts(shuffled)
+        return shuffled
 
-        if contains_original_word_in_any_split(normalized, originals):
-            return shuffled
-
-        return normalized
-
-    for _ in range(200):
-        shuffled = base_syllables[:]
+    for _ in range(400):
+        shuffled = base_parts[:]
         random.shuffle(shuffled)
-        normalized = normalize_shuffled_parts(shuffled)
 
-        if contains_original_word_in_any_split(normalized, originals):
+        shuffled_texts = [item["text"] for item in shuffled]
+
+        if contains_original_word_in_any_split(shuffled_texts, originals):
             continue
 
-        sep = max(1, len(normalized) // 2)
-        fake_word_1 = "".join(normalized[:sep])
-        fake_word_2 = "".join(normalized[sep:])
+        sep = max(1, len(shuffled_texts) // 2)
+        fake_word_1 = "".join(shuffled_texts[:sep])
+        fake_word_2 = "".join(shuffled_texts[sep:])
 
         if not fake_word_1 or not fake_word_2:
             continue
 
         if looks_like_original(fake_word_1, originals):
             continue
-
         if looks_like_original(fake_word_2, originals):
             continue
 
-        return normalized
+        if shuffled_texts == base_texts:
+            continue
 
-    shuffled = base_syllables[:]
+        return shuffled
+
+    shuffled = base_parts[:]
     random.shuffle(shuffled)
-    return normalize_shuffled_parts(shuffled)
+    return shuffled
 
 
 def measure_parts(
-    draw: ImageDraw.ImageDraw, parts: list[str], font: ImageFont.FreeTypeFont
+    draw: ImageDraw.ImageDraw,
+    parts: list[dict],
+    font: ImageFont.FreeTypeFont,
 ) -> tuple[list[int], int]:
     widths: list[int] = []
 
     for part in parts:
-        box = draw.textbbox((0, 0), part, font=font)
+        box = draw.textbbox((0, 0), part["text"], font=font)
         widths.append(box[2] - box[0] + 18)
 
     return widths, sum(widths)
@@ -219,11 +202,40 @@ def measure_parts(
 
 def split_for_balanced_lines(
     draw: ImageDraw.ImageDraw,
-    parts: list[str],
+    parts: list[dict],
     font: ImageFont.FreeTypeFont,
-) -> list[list[str]]:
+) -> list[list[dict]]:
+    """
+    Делит части на 2 строки.
+    Дополнительное правило:
+    в каждой строке должны быть части обоих слов.
+    """
     if len(parts) <= 1:
         return [parts, []]
+
+    valid_splits: list[tuple[int, int]] = []
+
+    for index in range(1, len(parts)):
+        left = parts[:index]
+        right = parts[index:]
+
+        left_words = {part["word_index"] for part in left}
+        right_words = {part["word_index"] for part in right}
+
+        if left_words != {0, 1}:
+            continue
+        if right_words != {0, 1}:
+            continue
+
+        _, left_width = measure_parts(draw, left, font)
+        _, right_width = measure_parts(draw, right, font)
+        diff = abs(left_width - right_width)
+
+        valid_splits.append((index, diff))
+
+    if valid_splits:
+        best_split = min(valid_splits, key=lambda item: item[1])[0]
+        return [parts[:best_split], parts[best_split:]]
 
     best_split = 1
     best_diff = None
@@ -234,7 +246,6 @@ def split_for_balanced_lines(
 
         _, left_width = measure_parts(draw, left, font)
         _, right_width = measure_parts(draw, right, font)
-
         diff = abs(left_width - right_width)
 
         if best_diff is None or diff < best_diff:
@@ -250,19 +261,20 @@ def get_line_height(draw: ImageDraw.ImageDraw, font: ImageFont.FreeTypeFont) -> 
 
 
 def render_phrase_image(phrase: str, user_id: int) -> Path:
-    syllables = build_shuffled_parts(phrase)
+    parts = build_shuffled_parts(phrase)
 
     width = 1000
     height = 400
     image = Image.new("RGB", (width, height), "black")
     draw = ImageDraw.Draw(image)
-    main_font = ImageFont.truetype(str(FONT_MAIN_PATH), 96)
 
-    lines = split_for_balanced_lines(draw, syllables, main_font)
+    main_font = ImageFont.truetype(str(FONT_MAIN_PATH), 96)
+    lines = split_for_balanced_lines(draw, parts, main_font)
     non_empty_lines = [line for line in lines if line]
 
     line_height = get_line_height(draw, main_font)
     line_gap = 34
+
     block_height = line_height * len(non_empty_lines) + line_gap * (
         len(non_empty_lines) - 1
     )
@@ -272,23 +284,24 @@ def render_phrase_image(phrase: str, user_id: int) -> Path:
 
     y_positions: list[int] = []
     current_y = start_y
+
     for _ in non_empty_lines:
         y_positions.append(current_y)
         current_y += line_height + line_gap
 
-    for parts, y in zip(non_empty_lines, y_positions, strict=False):
-        widths, total_width = measure_parts(draw, parts, main_font)
+    for parts_line, y in zip(non_empty_lines, y_positions, strict=False):
+        widths, total_width = measure_parts(draw, parts_line, main_font)
         x = int((width - total_width) / 2)
 
-        line_colors = random.sample(COLORS, k=min(len(parts), len(COLORS)))
-        if len(parts) > len(COLORS):
+        line_colors = random.sample(COLORS, k=min(len(parts_line), len(COLORS)))
+        if len(parts_line) > len(COLORS):
             line_colors.extend(
-                random.choice(COLORS) for _ in range(len(parts) - len(COLORS))
+                random.choice(COLORS) for _ in range(len(parts_line) - len(COLORS))
             )
         random.shuffle(line_colors)
 
-        for index, part in enumerate(parts):
-            draw.text((x, y), part, fill=line_colors[index], font=main_font)
+        for index, part in enumerate(parts_line):
+            draw.text((x, y), part["text"], fill=line_colors[index], font=main_font)
             x += widths[index]
 
     image_path = get_phrase_image_path(user_id)
