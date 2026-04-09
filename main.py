@@ -7,6 +7,7 @@ from app.handlers.callbacks import register_callback_handlers
 from app.handlers.game_menu import register_game_menu_handlers
 from app.handlers.messages import register_message_handlers
 from app.handlers.multi_callbacks import register_multi_callback_handlers
+from app.handlers.multi_gameplay import register_multi_gameplay_handlers
 from app.handlers.multi_messages import register_multi_message_handlers
 from app.handlers.statistics import register_statistics_handlers
 from app.services.multi_repository import init_multi_db
@@ -27,6 +28,7 @@ def main() -> None:
     register_game_menu_handlers(bot)
     register_multi_message_handlers(bot)
     register_multi_callback_handlers(bot)
+    register_multi_gameplay_handlers(bot)
 
     register_message_handlers(bot)
     register_callback_handlers(bot)

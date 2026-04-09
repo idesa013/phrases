@@ -42,28 +42,61 @@ class MultiGamePlayer(BaseModel):
     joined_at = CharField(default=lambda: datetime.now().strftime("%Y%m%d:%H%M"))
 
 
+class MultiGameStats(BaseModel):
+    id = AutoField()
+    game_id = IntegerField()
+    user_id = IntegerField()
+    username = CharField(null=True)
+    generated = IntegerField(default=0)
+    right = IntegerField(default=0)
+    wrong = IntegerField(default=0)
+
+
 def init_multi_db() -> None:
     database.connect(reuse_if_open=True)
     try:
-        database.create_tables([MultiConfig, MultiGame, MultiGamePlayer])
-
-        MultiConfig.get_or_create(
-            key="start_delay_seconds",
-            defaults={"value": 5},
+        database.create_tables(
+            [MultiConfig, MultiGame, MultiGamePlayer, MultiGameStats]
         )
+
+        MultiConfig.get_or_create(key="start_delay_seconds", defaults={"value": 5})
+        MultiConfig.get_or_create(key="answer_time_seconds", defaults={"value": 10})
+        MultiConfig.get_or_create(key="answer_attempts", defaults={"value": 2})
+        MultiConfig.get_or_create(key="next_round_delay_seconds", defaults={"value": 5})
+        MultiConfig.get_or_create(key="rounds_count", defaults={"value": 5})
+    finally:
+        database.close()
+
+
+def _get_config_int(key: str, default: int) -> int:
+    database.connect(reuse_if_open=True)
+    try:
+        config = MultiConfig.get_or_none(MultiConfig.key == key)
+        if config is None:
+            config = MultiConfig.create(key=key, value=default)
+        return int(config.value)
     finally:
         database.close()
 
 
 def get_start_delay_seconds() -> int:
-    database.connect(reuse_if_open=True)
-    try:
-        config = MultiConfig.get_or_none(MultiConfig.key == "start_delay_seconds")
-        if config is None:
-            config = MultiConfig.create(key="start_delay_seconds", value=5)
-        return int(config.value)
-    finally:
-        database.close()
+    return _get_config_int("start_delay_seconds", 5)
+
+
+def get_answer_time_seconds() -> int:
+    return _get_config_int("answer_time_seconds", 10)
+
+
+def get_answer_attempts() -> int:
+    return _get_config_int("answer_attempts", 2)
+
+
+def get_next_round_delay_seconds() -> int:
+    return _get_config_int("next_round_delay_seconds", 5)
+
+
+def get_rounds_count() -> int:
+    return _get_config_int("rounds_count", 5)
 
 
 def create_game(
@@ -136,6 +169,18 @@ def get_game(game_id: int) -> MultiGame | None:
     database.connect(reuse_if_open=True)
     try:
         return MultiGame.get_or_none(MultiGame.id == game_id)
+    finally:
+        database.close()
+
+
+def set_game_status(game_id: int, status: str) -> None:
+    database.connect(reuse_if_open=True)
+    try:
+        game = MultiGame.get_or_none(MultiGame.id == game_id)
+        if game is None:
+            return
+        game.status = status
+        game.save()
     finally:
         database.close()
 
@@ -264,5 +309,93 @@ def clear_game_players(game_id: int) -> None:
             return
 
         (MultiGamePlayer.delete().where(MultiGamePlayer.game == game).execute())
+    finally:
+        database.close()
+
+
+def init_round_stats(game_id: int, participants: list[dict]) -> None:
+    database.connect(reuse_if_open=True)
+    try:
+        for participant in participants:
+            stat, _ = MultiGameStats.get_or_create(
+                game_id=game_id,
+                user_id=participant["user_id"],
+                defaults={
+                    "username": participant["username"],
+                    "generated": 0,
+                    "right": 0,
+                    "wrong": 0,
+                },
+            )
+            stat.username = participant["username"]
+            stat.generated += 1
+            stat.save()
+    finally:
+        database.close()
+
+
+def increment_game_right(game_id: int, user_id: int, username: str | None) -> None:
+    database.connect(reuse_if_open=True)
+    try:
+        stat, _ = MultiGameStats.get_or_create(
+            game_id=game_id,
+            user_id=user_id,
+            defaults={
+                "username": username,
+                "generated": 0,
+                "right": 0,
+                "wrong": 0,
+            },
+        )
+        stat.username = username
+        stat.right += 1
+        stat.save()
+    finally:
+        database.close()
+
+
+def increment_game_wrong(game_id: int, user_id: int, username: str | None) -> None:
+    database.connect(reuse_if_open=True)
+    try:
+        stat, _ = MultiGameStats.get_or_create(
+            game_id=game_id,
+            user_id=user_id,
+            defaults={
+                "username": username,
+                "generated": 0,
+                "right": 0,
+                "wrong": 0,
+            },
+        )
+        stat.username = username
+        stat.wrong += 1
+        stat.save()
+    finally:
+        database.close()
+
+
+def get_game_leaderboard(game_id: int) -> list[dict]:
+    database.connect(reuse_if_open=True)
+    try:
+        query = (
+            MultiGameStats.select()
+            .where(MultiGameStats.game_id == game_id)
+            .order_by(
+                MultiGameStats.right.desc(),
+                MultiGameStats.wrong.asc(),
+                MultiGameStats.username.asc(),
+            )
+        )
+
+        return [
+            {
+                "user_id": item.user_id,
+                "username": item.username,
+                "generated": item.generated,
+                "right": item.right,
+                "wrong": item.wrong,
+            }
+            for item in query
+        ]
     finally:
         database.close()

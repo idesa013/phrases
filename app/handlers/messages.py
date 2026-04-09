@@ -52,19 +52,16 @@ def register_message_handlers(bot: TeleBot) -> None:
             )
             return
 
-        if get_menu_state(message.from_user.id) != "single_game":
-            is_admin = message.from_user.id in ADMIN_IDS
-            bot.send_message(
-                message.chat.id,
-                "Выбери режим игры.",
-                reply_markup=game_mode_keyboard(is_admin=is_admin),
-            )
+        current_menu = get_menu_state(message.from_user.id)
+
+        if current_menu != "single_game":
             return
 
         state = get_state(message.from_user.id)
 
         if not state.waiting_for_answer or not state.phrase:
             is_admin = message.from_user.id in ADMIN_IDS
+            set_menu_state(message.from_user.id, "root")
             bot.send_message(
                 message.chat.id,
                 "Выбери режим игры.",

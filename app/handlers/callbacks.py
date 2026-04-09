@@ -11,6 +11,7 @@ from app.keyboards.inline import (
 from app.keyboards.reply import registration_keyboard
 from app.services.game_state import get_state, mark_generated
 from app.services.image_generator import render_phrase_image
+from app.services.menu_state import set_menu_state
 from app.services.phrase_repository import get_random_phrase
 from app.services.stats_repository import increment_generated, is_user_registered
 
@@ -31,6 +32,7 @@ def register_callback_handlers(bot: TeleBot) -> None:
     def handle_generate_phrase(call) -> None:
         if not is_user_registered(call.from_user.id):
             bot.answer_callback_query(call.id)
+            set_menu_state(call.from_user.id, "registration")
             bot.send_message(
                 call.message.chat.id,
                 "Сначала зарегистрируйся.",
@@ -38,10 +40,14 @@ def register_callback_handlers(bot: TeleBot) -> None:
             )
             return
 
+        set_menu_state(call.from_user.id, "single_game")
+
         current_state = get_state(call.from_user.id)
         phrase = get_random_phrase(exclude=current_state.phrase)
         state = mark_generated(call.from_user.id, phrase)
+
         increment_generated(call.from_user.id, call.from_user.username)
+
         image_path = render_phrase_image(phrase, call.from_user.id)
         state.phrase_image_path = str(image_path)
 
@@ -92,6 +98,7 @@ def register_callback_handlers(bot: TeleBot) -> None:
     @bot.callback_query_handler(func=lambda call: call.data == "show_answer")
     def handle_show_answer(call) -> None:
         state = get_state(call.from_user.id)
+
         bot.answer_callback_query(call.id)
 
         if not state.phrase:

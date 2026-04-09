@@ -1,6 +1,7 @@
 from telebot import TeleBot
 
 from app.config import ADMIN_IDS
+from app.handlers.multi_gameplay import schedule_game_start_if_ready
 from app.keyboards.reply import (
     cancel_keyboard,
     create_confirm_keyboard,
@@ -224,11 +225,19 @@ def register_multi_message_handlers(bot: TeleBot) -> None:
             game = get_game(state.selected_game_id)
             set_menu_state(message.from_user.id, "multi_waiting_joined")
 
-            bot.send_message(
-                message.chat.id,
-                "Ты присоединился к игре. Ожидаем остальных игроков.",
-                reply_markup=cancel_keyboard(is_admin=is_admin),
-            )
+            if game and game.status == "ready":
+                delay = get_start_delay_seconds()
+                bot.send_message(
+                    message.chat.id,
+                    f"Ты присоединился к игре. Игра начнется через {delay} секунд.",
+                    reply_markup=cancel_keyboard(is_admin=is_admin),
+                )
+            else:
+                bot.send_message(
+                    message.chat.id,
+                    "Ты присоединился к игре. Ожидаем остальных игроков.",
+                    reply_markup=cancel_keyboard(is_admin=is_admin),
+                )
 
             if game:
                 _notify_about_join(
@@ -238,6 +247,9 @@ def register_multi_message_handlers(bot: TeleBot) -> None:
                     joined_username=message.from_user.username,
                     max_players=game.max_players,
                 )
+
+                if game.status == "ready":
+                    schedule_game_start_if_ready(bot, game.id)
 
     @bot.message_handler(
         func=lambda message: message.text == "Back"
