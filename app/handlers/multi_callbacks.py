@@ -33,7 +33,12 @@ def _send_open_games_page(bot: TeleBot, chat_id: int, page: int) -> None:
     )
 
 
-def _send_ended_games_page(bot: TeleBot, chat_id: int, user_id: int, page: int) -> None:
+def _send_ended_games_page(
+    bot: TeleBot,
+    chat_id: int,
+    user_id: int,
+    page: int,
+) -> None:
     per_page = 15
     offset = (page - 1) * per_page
     games = list_user_ended_games(user_id=user_id, limit=per_page, offset=offset)
@@ -53,7 +58,12 @@ def _send_ended_games_page(bot: TeleBot, chat_id: int, user_id: int, page: int) 
 def register_multi_callback_handlers(bot: TeleBot) -> None:
     @bot.message_handler(
         func=lambda message: message.text == "Join"
-        and get_menu_state(message.from_user.id) == "multi_menu"
+        and get_menu_state(message.from_user.id)
+        in {
+            "multi_menu",
+            "multi_join_list",
+            "multi_ended_list",
+        }
     )
     def handle_join(message) -> None:
         if not is_user_registered(message.from_user.id):
@@ -74,7 +84,12 @@ def register_multi_callback_handlers(bot: TeleBot) -> None:
 
     @bot.message_handler(
         func=lambda message: message.text == "Ended"
-        and get_menu_state(message.from_user.id) == "multi_menu"
+        and get_menu_state(message.from_user.id)
+        in {
+            "multi_menu",
+            "multi_join_list",
+            "multi_ended_list",
+        }
     )
     def handle_ended(message) -> None:
         if not is_user_registered(message.from_user.id):
@@ -220,6 +235,8 @@ def register_multi_callback_handlers(bot: TeleBot) -> None:
                 "Эта игра недоступна.",
             )
             return
+
+        set_menu_state(call.from_user.id, "multi_menu")
 
         send_game_results(
             bot=bot,

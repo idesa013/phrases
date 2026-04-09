@@ -50,7 +50,8 @@ def send_game_results(
 ) -> None:
     leaderboard = get_game_leaderboard(game_id)
     total_rounds = _detect_total_rounds(leaderboard)
-    text = build_leaderboard_text(game_id, leaderboard)
+
+    # text = build_leaderboard_text(game_id, leaderboard)
 
     image_path = render_multi_statistics_image(
         game_id=game_id,
@@ -62,6 +63,6 @@ def send_game_results(
         bot.send_photo(
             chat_id,
             photo,
-            caption=text,
+            # caption=text,
             reply_markup=multi_game_keyboard(is_admin=is_admin),
         )

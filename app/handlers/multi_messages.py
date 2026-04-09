@@ -24,6 +24,13 @@ from app.services.multi_state import get_multi_state, reset_multi_state
 from app.services.stats_repository import is_user_registered
 
 
+TOP_MULTI_MENUS = {
+    "multi_menu",
+    "multi_join_list",
+    "multi_ended_list",
+}
+
+
 def _format_username(username: str | None) -> str:
     if username:
         return f"@{username}"
@@ -118,7 +125,7 @@ def _notify_about_creator_cancel(
 def register_multi_message_handlers(bot: TeleBot) -> None:
     @bot.message_handler(
         func=lambda message: message.text == "Create"
-        and get_menu_state(message.from_user.id) == "multi_menu"
+        and get_menu_state(message.from_user.id) in TOP_MULTI_MENUS
     )
     def handle_create(message) -> None:
         if not is_user_registered(message.from_user.id):

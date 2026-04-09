@@ -25,8 +25,6 @@ COLORS = [
     "#5ac8fa",
 ]
 
-VOWELS = "АЕЁИОУЫЭЮЯ"
-
 
 def get_phrase_image_path(user_id: int) -> Path:
     return IMAGES_DIR / f"phrase_{user_id}.png"
@@ -37,14 +35,20 @@ def split_into_syllables(word: str, dic: pyphen.Pyphen) -> list[str]:
     Разбивает слово на части и нормализует односимвольные куски
     только внутри этого же слова.
 
-    Пример:
-    ["Я", "ЗЫК"] -> ["ЯЗ", "ЫК"]
+    Примеры:
+    ЯЗЫК -> ЯЗ | ЫК
+    ЯЗЫКОВОЙ -> ЯЗ | ЫКО | ВОЙ
     """
     parts = dic.inserted(word.upper(), hyphen="•").split("•")
     parts = [part for part in parts if part]
 
     if not parts:
         return [word.upper()]
+
+    # Если pyphen не разбил слово, а слово длинное,
+    # запускаем нормализацию от первой буквы.
+    if len(parts) == 1 and len(parts[0]) >= 4:
+        parts = [parts[0][0], parts[0][1:]]
 
     return rebalance_single_letter_parts_in_word(parts)
 
@@ -53,11 +57,17 @@ def rebalance_single_letter_parts_in_word(parts: list[str]) -> list[str]:
     """
     Перебалансирует односимвольные части только внутри одного слова.
 
+    Правило:
+    если есть кусок из 1 буквы, а следующий кусок длиной 2+,
+    переносим первую букву следующего куска в текущий.
+
+    Дополнительное правило:
+    если после такого переноса следующий кусок стал односимвольным,
+    пытаемся подтянуть к нему первую букву следующего куска.
+
     Примеры:
     ["Я", "ЗЫК"] -> ["ЯЗ", "ЫК"]
-    ["Д", "ЛИН", "НЫЙ"] -> ["ДЛ", "ИН", "НЫЙ"]
-
-    Ничего не переносит между словами.
+    ["Я", "ЗЫ", "КО", "ВОЙ"] -> ["ЯЗ", "ЫКО", "ВОЙ"]
     """
     if len(parts) <= 1:
         return parts[:]
@@ -70,8 +80,21 @@ def rebalance_single_letter_parts_in_word(parts: list[str]) -> list[str]:
         next_part = result[index + 1]
 
         if len(current) == 1 and len(next_part) >= 2:
-            result[index] = current + next_part[0]
+            moved_char = next_part[0]
+            result[index] = current + moved_char
             result[index + 1] = next_part[1:]
+
+            if (
+                index + 2 < len(result)
+                and len(result[index + 1]) == 1
+                and len(result[index + 2]) >= 1
+            ):
+                moved_char_2 = result[index + 2][0]
+                result[index + 1] = result[index + 1] + moved_char_2
+                result[index + 2] = result[index + 2][1:]
+
+                if not result[index + 2]:
+                    result.pop(index + 2)
 
             if not result[index + 1]:
                 result.pop(index + 1)
@@ -110,11 +133,6 @@ def contains_original_word_in_any_split(
     parts: list[str],
     originals: tuple[str, str],
 ) -> bool:
-    """
-    Проверяет все возможные разрезы списка частей на 2 слова.
-    Если хотя бы одно из получившихся слов совпадает с одним из оригинальных,
-    такой вариант считаем плохим.
-    """
     normalized_originals = {word.lower() for word in originals}
 
     for index in range(1, len(parts)):
@@ -134,8 +152,9 @@ def build_shuffled_parts(phrase: str) -> list[dict]:
     Возвращает список словарей:
     {"text": <кусок>, "word_index": 0|1}
 
-    Это нужно, чтобы потом разложить на 2 строки так,
-    чтобы в каждой строке были части обоих слов.
+    Важно:
+    - никаких дополнительных склеек после shuffle
+    - нормализация кусков делается только ДО shuffle
     """
     first_word, second_word = phrase.split()
     originals = (first_word.upper(), second_word.upper())
@@ -147,7 +166,6 @@ def build_shuffled_parts(phrase: str) -> list[dict]:
     base_parts = [{"text": part, "word_index": 0} for part in first_parts] + [
         {"text": part, "word_index": 1} for part in second_parts
     ]
-
     base_texts = [item["text"] for item in base_parts]
 
     if len(base_parts) < 4:
@@ -160,6 +178,9 @@ def build_shuffled_parts(phrase: str) -> list[dict]:
         random.shuffle(shuffled)
 
         shuffled_texts = [item["text"] for item in shuffled]
+
+        if shuffled_texts == base_texts:
+            continue
 
         if contains_original_word_in_any_split(shuffled_texts, originals):
             continue
@@ -174,9 +195,6 @@ def build_shuffled_parts(phrase: str) -> list[dict]:
         if looks_like_original(fake_word_1, originals):
             continue
         if looks_like_original(fake_word_2, originals):
-            continue
-
-        if shuffled_texts == base_texts:
             continue
 
         return shuffled
@@ -207,7 +225,8 @@ def split_for_balanced_lines(
 ) -> list[list[dict]]:
     """
     Делит части на 2 строки.
-    Дополнительное правило:
+
+    Правило:
     в каждой строке должны быть части обоих слов.
     """
     if len(parts) <= 1:
