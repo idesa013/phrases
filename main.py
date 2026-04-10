@@ -24,12 +24,10 @@ def main() -> None:
 
     register_statistics_handlers(bot)
     register_admin_handlers(bot)
-
     register_game_menu_handlers(bot)
     register_multi_message_handlers(bot)
     register_multi_callback_handlers(bot)
     register_multi_gameplay_handlers(bot)
-
     register_message_handlers(bot)
     register_callback_handlers(bot)
 
@@ -37,6 +35,7 @@ def main() -> None:
         [
             BotCommand("start", "Запустить бота"),
             BotCommand("statistics", "Показать статистику"),
+            BotCommand("multi_statistics", "Показать мульти-статистику"),
         ]
     )
 
