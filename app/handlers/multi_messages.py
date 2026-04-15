@@ -31,6 +31,7 @@ from app.services.multi_state import (
     reset_multi_state,
 )
 from app.services.stats_repository import (
+    get_user_by_username,
     get_registered_user_by_username,
     is_user_registered,
 )
@@ -51,6 +52,18 @@ def _format_username(username: str | None) -> str:
 
 def _normalize_username(username: str) -> str:
     return username.strip().lstrip("@")
+
+
+def _game_description() -> str:
+    return (
+        "Это игра с фразеологизмами: бот показывает перемешанные части фразы, "
+        "а игроки пытаются угадать правильный ответ."
+    )
+
+
+def _build_invite_link(bot: TeleBot, game_id: int) -> str:
+    bot_username = bot.get_me().username
+    return f"https://t.me/{bot_username}?start=invite_{game_id}"
 
 
 def _notify_about_join(
@@ -544,18 +557,24 @@ def register_multi_message_handlers(bot: TeleBot) -> None:
 
         username = _normalize_username(message.text or "")
         invited_user = get_registered_user_by_username(username)
+        known_user = invited_user or get_user_by_username(username)
 
         set_menu_state(message.from_user.id, "multi_waiting_created")
 
-        if invited_user is None:
+        if known_user is None:
+            invite_link = _build_invite_link(bot, game.id)
             bot.send_message(
                 message.chat.id,
-                f"Пользователь @{username} не найден.",
+                (
+                    f"Пользователь @{username} ещё не открывал бота.\n"
+                    "Перешли ему эту ссылку для приглашения:\n"
+                    f"{invite_link}"
+                ),
                 reply_markup=invite_cancel_keyboard(is_admin=is_admin),
             )
             return
 
-        if invited_user.user_id == message.from_user.id:
+        if known_user.user_id == message.from_user.id:
             bot.send_message(
                 message.chat.id,
                 "Нельзя пригласить самого себя.",
@@ -563,31 +582,45 @@ def register_multi_message_handlers(bot: TeleBot) -> None:
             )
             return
 
-        if is_user_in_game(game.id, invited_user.user_id):
+        if is_user_in_game(game.id, known_user.user_id):
             bot.send_message(
                 message.chat.id,
-                f"Пользователь @{invited_user.username} уже в этой игре.",
+                f"Пользователь @{known_user.username} уже в этой игре.",
                 reply_markup=invite_cancel_keyboard(is_admin=is_admin),
             )
             return
 
-        invited_state = get_multi_state(invited_user.user_id)
+        invited_state = get_multi_state(known_user.user_id)
         invited_state.selected_game_id = game.id
-        set_menu_state(invited_user.user_id, "multi_join_confirm")
 
         bot.send_message(
             message.chat.id,
             (
                 f"Приглашение к игре №{game.id} успешно отправлено "
-                f"пользователю @{invited_user.username}"
+                f"пользователю @{known_user.username}"
             ),
             reply_markup=invite_cancel_keyboard(is_admin=is_admin),
         )
 
         creator_username = _format_username(message.from_user.username)
-        invited_is_admin = invited_user.user_id in ADMIN_IDS
+        invited_is_admin = known_user.user_id in ADMIN_IDS
+
+        if invited_user is None:
+            set_menu_state(known_user.user_id, "registration")
+            bot.send_message(
+                known_user.user_id,
+                (
+                    f"{_game_description()}\n\n"
+                    f"Пользователь {creator_username} приглашает Вас поиграть.\n"
+                    "Для участия нужно пройти регистрацию."
+                ),
+                reply_markup=registration_keyboard(),
+            )
+            return
+
+        set_menu_state(known_user.user_id, "multi_join_confirm")
         bot.send_message(
-            invited_user.user_id,
+            known_user.user_id,
             (
                 f"Пользователь {creator_username} приглашает Вас поиграть.\n"
                 "Подтверди присоединение."

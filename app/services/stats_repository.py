@@ -63,6 +63,50 @@ def get_registered_user_by_username(username: str) -> User | None:
         database.close()
 
 
+def get_user_by_username(username: str) -> User | None:
+    normalized_username = username.strip().lstrip("@").lower()
+    if not normalized_username:
+        return None
+
+    database.connect(reuse_if_open=True)
+    try:
+        return User.get_or_none(fn.LOWER(User.username) == normalized_username)
+    finally:
+        database.close()
+
+
+def remember_user(
+    user_id: int,
+    username: str | None,
+    name: str | None,
+    surname: str | None,
+) -> User:
+    database.connect(reuse_if_open=True)
+    try:
+        user, created = User.get_or_create(
+            user_id=user_id,
+            defaults={
+                "username": username,
+                "name": name,
+                "surname": surname,
+                "reg_date": _now_reg_date(),
+                "status": 0,
+            },
+        )
+
+        if not created:
+            user.username = username
+            user.name = name
+            user.surname = surname
+            if not user.reg_date:
+                user.reg_date = _now_reg_date()
+            user.save()
+
+        return user
+    finally:
+        database.close()
+
+
 def is_user_registered(user_id: int) -> bool:
     database.connect(reuse_if_open=True)
     try:
