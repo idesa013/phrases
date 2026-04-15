@@ -1,4 +1,4 @@
-python-telegram-bot[job-queue]==21.11.1
+python-telegram-bot==22.7
 Pillow==11.1.0
 pyphen==0.17.2
 requests==2.32.3
