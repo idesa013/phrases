@@ -28,6 +28,20 @@ COLORS = [
     "#5ac8fa",
 ]
 
+COLOR_FAMILIES = {
+    "#ff3b30": "red",
+    "#34c759": "green",
+    "#007aff": "blue",
+    "#ff9500": "orange",
+    "#af52de": "purple",
+    "#ffd60a": "yellow",
+    "#64d2ff": "blue",
+    "#ff2d55": "red",
+    "#30d158": "green",
+    "#bf5af2": "purple",
+    "#5ac8fa": "blue",
+}
+
 SHUFFLE_ATTEMPTS = 2000
 
 
@@ -393,6 +407,42 @@ def get_line_height(draw: ImageDraw.ImageDraw, font: ImageFont.FreeTypeFont) -> 
     return box[3] - box[1]
 
 
+def _pick_part_colors(lines: list[list[dict]]) -> list[list[str]]:
+    picked_lines: list[list[str]] = []
+    recent_families: list[str] = []
+
+    for line in lines:
+        line_colors: list[str] = []
+
+        for _ in line:
+            blocked_families = set(recent_families[-2:])
+            used_in_line = set(line_colors)
+            candidates = [
+                color
+                for color in COLORS
+                if COLOR_FAMILIES[color] not in blocked_families
+                and color not in used_in_line
+            ]
+
+            if not candidates:
+                candidates = [
+                    color
+                    for color in COLORS
+                    if COLOR_FAMILIES[color] not in blocked_families
+                ]
+
+            if not candidates:
+                candidates = COLORS[:]
+
+            color = random.choice(candidates)
+            line_colors.append(color)
+            recent_families.append(COLOR_FAMILIES[color])
+
+        picked_lines.append(line_colors)
+
+    return picked_lines
+
+
 def render_phrase_image(phrase: str, user_id: int) -> Path:
     parts = build_shuffled_parts(phrase)
     _, originals = _build_base_parts(phrase)
@@ -423,16 +473,16 @@ def render_phrase_image(phrase: str, user_id: int) -> Path:
         y_positions.append(current_y)
         current_y += line_height + line_gap
 
-    for parts_line, y in zip(non_empty_lines, y_positions, strict=False):
+    colors_by_line = _pick_part_colors(non_empty_lines)
+
+    for parts_line, line_colors, y in zip(
+        non_empty_lines,
+        colors_by_line,
+        y_positions,
+        strict=False,
+    ):
         widths, total_width = measure_parts(draw, parts_line, main_font)
         x = int((width - total_width) / 2)
-
-        line_colors = random.sample(COLORS, k=min(len(parts_line), len(COLORS)))
-        if len(parts_line) > len(COLORS):
-            line_colors.extend(
-                random.choice(COLORS) for _ in range(len(parts_line) - len(COLORS))
-            )
-        random.shuffle(line_colors)
 
         for index, part in enumerate(parts_line):
             draw.text((x, y), part["text"], fill=line_colors[index], font=main_font)

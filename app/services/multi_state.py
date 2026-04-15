@@ -21,6 +21,7 @@ class MultiRuntimeState:
     answered_correctly: set[int] = field(default_factory=set)
     round_players: dict[int, str | None] = field(default_factory=dict)
     last_phrase: str | None = None
+    used_phrases: set[str] = field(default_factory=set)
 
 
 _multi_user_states: dict[int, MultiUserState] = {}

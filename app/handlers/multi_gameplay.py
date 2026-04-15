@@ -195,7 +195,7 @@ def _start_next_round(bot: TeleBot, game_id: int) -> None:
     runtime.attempts_left = {p["user_id"]: attempts_limit for p in participants}
 
     try:
-        phrase = get_random_phrase(exclude=runtime.last_phrase)
+        phrase = get_random_phrase(exclude=runtime.used_phrases)
         image_path = render_phrase_image(phrase, game_id)
     except (ValueError, PhraseShuffleError):
         for participant in participants:
@@ -208,6 +208,7 @@ def _start_next_round(bot: TeleBot, game_id: int) -> None:
 
     runtime.phrase = phrase
     runtime.last_phrase = phrase
+    runtime.used_phrases.add(phrase)
 
     init_round_stats(game_id, participants)
 

@@ -32,15 +32,25 @@ def save_phrases(phrases: list[str]) -> None:
         json.dump(sorted(set(phrases)), file, ensure_ascii=False, indent=2)
 
 
-def get_random_phrase(exclude: str | None = None) -> str:
+def _normalize_excluded_phrases(exclude: str | set[str] | list[str] | None) -> set[str]:
+    if exclude is None:
+        return set()
+    if isinstance(exclude, str):
+        return {exclude}
+    return set(exclude)
+
+
+def get_random_phrase(exclude: str | set[str] | list[str] | None = None) -> str:
     phrases = load_phrases()
 
     if not phrases:
         raise ValueError("Список фраз пуст.")
 
-    candidates = phrases
-    if exclude is not None and len(phrases) > 1:
-        candidates = [phrase for phrase in phrases if phrase != exclude]
+    excluded_phrases = _normalize_excluded_phrases(exclude)
+    candidates = [phrase for phrase in phrases if phrase not in excluded_phrases]
+
+    if not candidates:
+        raise ValueError("Нет новых фраз для этой игры.")
 
     shuffled_candidates = candidates[:]
     random.shuffle(shuffled_candidates)
