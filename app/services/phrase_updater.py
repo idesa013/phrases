@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from app.config import (
     HTTP_USER_AGENT,
@@ -62,6 +64,15 @@ def save_sources(total_count: int) -> None:
 
 def fetch_wiktionary_phrases() -> tuple[list[str], str]:
     session = requests.Session()
+    retry = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset({"GET"}),
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
     session.headers.update(
         {
             "User-Agent": HTTP_USER_AGENT,

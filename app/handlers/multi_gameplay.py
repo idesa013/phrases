@@ -4,7 +4,7 @@ from telebot import TeleBot
 
 from app.config import ADMIN_IDS
 from app.keyboards.reply import multi_game_keyboard, registration_keyboard
-from app.services.menu_state import set_menu_state
+from app.services.menu_state import get_menu_state, set_menu_state
 from app.services.multi_repository import (
     get_answer_attempts,
     get_answer_time_seconds,
@@ -27,7 +27,7 @@ from app.services.multi_state import (
     reset_multi_state,
 )
 from app.services.phrase_repository import get_random_phrase
-from app.services.image_generator import render_phrase_image
+from app.services.image_generator import PhraseShuffleError, render_phrase_image
 from app.services.stats_repository import is_user_registered
 from app.utils.text import normalize_answer
 from app.services.multi_statistics_image import render_multi_statistics_image
@@ -190,14 +190,24 @@ def _start_next_round(bot: TeleBot, game_id: int) -> None:
     attempts_limit = get_answer_attempts()
     runtime.attempts_left = {p["user_id"]: attempts_limit for p in participants}
 
-    phrase = get_random_phrase(exclude=runtime.last_phrase)
+    try:
+        phrase = get_random_phrase(exclude=runtime.last_phrase)
+        image_path = render_phrase_image(phrase, game_id)
+    except (ValueError, PhraseShuffleError):
+        for participant in participants:
+            bot.send_message(
+                participant["user_id"],
+                "Не нашлось фразы, которую можно хорошо перемешать.",
+            )
+        _finish_game(bot, game_id)
+        return
+
     runtime.phrase = phrase
     runtime.last_phrase = phrase
 
     init_round_stats(game_id, participants)
 
     answer_time = get_answer_time_seconds()
-    image_path = render_phrase_image(phrase, game_id)
 
     for participant in participants:
         set_menu_state(participant["user_id"], "multi_round_active")
@@ -250,7 +260,9 @@ def _begin_game(bot: TeleBot, game_id: int) -> None:
 
 def register_multi_gameplay_handlers(bot: TeleBot) -> None:
     @bot.message_handler(
-        func=lambda message: bool(message.text) and not message.text.startswith("/"),
+        func=lambda message: bool(message.text)
+        and not message.text.startswith("/")
+        and get_menu_state(message.from_user.id) == "multi_round_active",
         content_types=["text"],
     )
     def handle_multi_answer(message) -> None:

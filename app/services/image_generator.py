@@ -1,6 +1,9 @@
 import inspect
+import itertools
 import random
+import re
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
 
 import pyphen
@@ -24,6 +27,12 @@ COLORS = [
     "#bf5af2",
     "#5ac8fa",
 ]
+
+SHUFFLE_ATTEMPTS = 2000
+
+
+class PhraseShuffleError(ValueError):
+    pass
 
 
 def get_phrase_image_path(user_id: int) -> Path:
@@ -113,6 +122,10 @@ def similarity(left: str, right: str) -> float:
     return SequenceMatcher(None, left.lower(), right.lower()).ratio()
 
 
+def normalize_clue_text(text: str) -> str:
+    return re.sub(r"[^а-яё]", "", text.lower())
+
+
 def looks_like_original(candidate: str, originals: tuple[str, str]) -> bool:
     candidate_lower = candidate.lower()
 
@@ -147,15 +160,45 @@ def contains_original_word_in_any_split(
     return False
 
 
-def build_shuffled_parts(phrase: str) -> list[dict]:
-    """
-    Возвращает список словарей:
-    {"text": <кусок>, "word_index": 0|1}
+def contains_original_word_in_any_run(
+    parts: list[str],
+    originals: tuple[str, str],
+) -> bool:
+    normalized_originals = {word.lower() for word in originals}
 
-    Важно:
-    - никаких дополнительных склеек после shuffle
-    - нормализация кусков делается только ДО shuffle
-    """
+    for start in range(len(parts)):
+        current = ""
+        for end in range(start, len(parts)):
+            current += parts[end].lower()
+            if current in normalized_originals:
+                return True
+
+    return False
+
+
+def contains_large_original_fragment_in_any_run(
+    parts: list[str],
+    originals: tuple[str, str],
+) -> bool:
+    normalized_originals = [normalize_clue_text(word) for word in originals]
+
+    for start in range(len(parts)):
+        current = ""
+        for end in range(start, len(parts)):
+            current += normalize_clue_text(parts[end])
+
+            for original in normalized_originals:
+                if not original or current == original:
+                    continue
+
+                min_clue_length = max(4, int(len(original) * 0.5))
+                if len(current) >= min_clue_length and current in original:
+                    return True
+
+    return False
+
+
+def _build_base_parts(phrase: str) -> tuple[list[dict], tuple[str, str]]:
     first_word, second_word = phrase.split()
     originals = (first_word.upper(), second_word.upper())
     dic = pyphen.Pyphen(lang="ru")
@@ -166,42 +209,106 @@ def build_shuffled_parts(phrase: str) -> list[dict]:
     base_parts = [{"text": part, "word_index": 0} for part in first_parts] + [
         {"text": part, "word_index": 1} for part in second_parts
     ]
-    base_texts = [item["text"] for item in base_parts]
 
-    if len(base_parts) < 4:
-        shuffled = base_parts[:]
-        random.shuffle(shuffled)
-        return shuffled
+    return base_parts, originals
 
-    for _ in range(400):
-        shuffled = base_parts[:]
-        random.shuffle(shuffled)
 
-        shuffled_texts = [item["text"] for item in shuffled]
+def _safe_line_split_indexes(
+    shuffled: list[dict],
+    originals: tuple[str, str],
+) -> list[int]:
+    shuffled_texts = [item["text"] for item in shuffled]
+    split_indexes: list[int] = []
 
-        if shuffled_texts == base_texts:
+    for index in range(1, len(shuffled_texts)):
+        left = shuffled[:index]
+        right = shuffled[index:]
+
+        if {part["word_index"] for part in left} != {0, 1}:
+            continue
+        if {part["word_index"] for part in right} != {0, 1}:
             continue
 
-        if contains_original_word_in_any_split(shuffled_texts, originals):
-            continue
-
-        sep = max(1, len(shuffled_texts) // 2)
-        fake_word_1 = "".join(shuffled_texts[:sep])
-        fake_word_2 = "".join(shuffled_texts[sep:])
-
-        if not fake_word_1 or not fake_word_2:
-            continue
+        fake_word_1 = "".join(shuffled_texts[:index])
+        fake_word_2 = "".join(shuffled_texts[index:])
 
         if looks_like_original(fake_word_1, originals):
             continue
         if looks_like_original(fake_word_2, originals):
             continue
 
-        return shuffled
+        split_indexes.append(index)
 
-    shuffled = base_parts[:]
-    random.shuffle(shuffled)
-    return shuffled
+    return split_indexes
+
+
+def _is_valid_shuffle(
+    shuffled: list[dict],
+    base_texts: list[str],
+    originals: tuple[str, str],
+) -> bool:
+    shuffled_texts = [item["text"] for item in shuffled]
+
+    if shuffled_texts == base_texts:
+        return False
+
+    if contains_original_word_in_any_split(shuffled_texts, originals):
+        return False
+
+    if contains_original_word_in_any_run(shuffled_texts, originals):
+        return False
+
+    if contains_large_original_fragment_in_any_run(shuffled_texts, originals):
+        return False
+
+    return bool(_safe_line_split_indexes(shuffled, originals))
+
+
+def build_shuffled_parts(phrase: str) -> list[dict]:
+    """
+    Возвращает список словарей:
+    {"text": <кусок>, "word_index": 0|1}
+
+    Важно:
+    - никаких дополнительных склеек после shuffle
+    - нормализация кусков делается только ДО shuffle
+    """
+    base_parts, originals = _build_base_parts(phrase)
+    base_texts = [item["text"] for item in base_parts]
+
+    if len(base_parts) < 4:
+        raise PhraseShuffleError("Недостаточно частей для перемешивания фразы.")
+
+    for _ in range(SHUFFLE_ATTEMPTS):
+        shuffled = base_parts[:]
+        random.shuffle(shuffled)
+
+        if _is_valid_shuffle(shuffled, base_texts, originals):
+            return shuffled
+
+    if len(base_parts) <= 8:
+        seen_orders: set[tuple[str, ...]] = set()
+
+        for permutation in itertools.permutations(base_parts):
+            order = tuple(item["text"] for item in permutation)
+            if order in seen_orders:
+                continue
+            seen_orders.add(order)
+
+            shuffled = list(permutation)
+            if _is_valid_shuffle(shuffled, base_texts, originals):
+                return shuffled
+
+    raise PhraseShuffleError("Не удалось безопасно перемешать фразу.")
+
+
+@lru_cache(maxsize=4096)
+def is_phrase_shuffleable(phrase: str) -> bool:
+    try:
+        build_shuffled_parts(phrase)
+    except (PhraseShuffleError, ValueError):
+        return False
+    return True
 
 
 def measure_parts(
@@ -222,6 +329,7 @@ def split_for_balanced_lines(
     draw: ImageDraw.ImageDraw,
     parts: list[dict],
     font: ImageFont.FreeTypeFont,
+    originals: tuple[str, str] | None = None,
 ) -> list[list[dict]]:
     """
     Делит части на 2 строки.
@@ -233,8 +341,14 @@ def split_for_balanced_lines(
         return [parts, []]
 
     valid_splits: list[tuple[int, int]] = []
+    safe_split_indexes = None
+    if originals is not None:
+        safe_split_indexes = set(_safe_line_split_indexes(parts, originals))
 
     for index in range(1, len(parts)):
+        if safe_split_indexes is not None and index not in safe_split_indexes:
+            continue
+
         left = parts[:index]
         right = parts[index:]
 
@@ -281,6 +395,7 @@ def get_line_height(draw: ImageDraw.ImageDraw, font: ImageFont.FreeTypeFont) -> 
 
 def render_phrase_image(phrase: str, user_id: int) -> Path:
     parts = build_shuffled_parts(phrase)
+    _, originals = _build_base_parts(phrase)
 
     width = 1000
     height = 400
@@ -288,7 +403,7 @@ def render_phrase_image(phrase: str, user_id: int) -> Path:
     draw = ImageDraw.Draw(image)
 
     main_font = ImageFont.truetype(str(FONT_MAIN_PATH), 96)
-    lines = split_for_balanced_lines(draw, parts, main_font)
+    lines = split_for_balanced_lines(draw, parts, main_font, originals)
     non_empty_lines = [line for line in lines if line]
 
     line_height = get_line_height(draw, main_font)

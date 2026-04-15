@@ -10,7 +10,7 @@ from app.keyboards.inline import (
 )
 from app.keyboards.reply import registration_keyboard
 from app.services.game_state import get_state, mark_generated
-from app.services.image_generator import render_phrase_image
+from app.services.image_generator import PhraseShuffleError, render_phrase_image
 from app.services.menu_state import set_menu_state
 from app.services.phrase_repository import get_random_phrase
 from app.services.stats_repository import increment_generated, is_user_registered
@@ -43,12 +43,20 @@ def register_callback_handlers(bot: TeleBot) -> None:
         set_menu_state(call.from_user.id, "single_game")
 
         current_state = get_state(call.from_user.id)
-        phrase = get_random_phrase(exclude=current_state.phrase)
+        try:
+            phrase = get_random_phrase(exclude=current_state.phrase)
+            image_path = render_phrase_image(phrase, call.from_user.id)
+        except (ValueError, PhraseShuffleError):
+            bot.answer_callback_query(call.id)
+            bot.send_message(
+                call.message.chat.id,
+                "Не нашлось фразы, которую можно хорошо перемешать.",
+                reply_markup=generate_only_keyboard(),
+            )
+            return
+
         state = mark_generated(call.from_user.id, phrase)
-
         increment_generated(call.from_user.id, call.from_user.username)
-
-        image_path = render_phrase_image(phrase, call.from_user.id)
         state.phrase_image_path = str(image_path)
 
         bot.answer_callback_query(call.id)

@@ -93,56 +93,62 @@ def register_user(
 
 def increment_generated(user_id: int, username: str | None) -> None:
     database.connect(reuse_if_open=True)
-    user, created = UserStats.get_or_create(
-        user_id=user_id,
-        defaults={
-            "username": username,
-            "generated": 0,
-            "right": 0,
-            "wrong": 0,
-        },
-    )
-    if not created:
-        user.username = username
-    user.generated += 1
-    user.save()
-    database.close()
+    try:
+        user, created = UserStats.get_or_create(
+            user_id=user_id,
+            defaults={
+                "username": username,
+                "generated": 0,
+                "right": 0,
+                "wrong": 0,
+            },
+        )
+        if not created:
+            user.username = username
+        user.generated += 1
+        user.save()
+    finally:
+        database.close()
 
 
 def increment_right(user_id: int, username: str | None) -> None:
     database.connect(reuse_if_open=True)
-    user, created = UserStats.get_or_create(
-        user_id=user_id,
-        defaults={
-            "username": username,
-            "generated": 0,
-            "right": 0,
-            "wrong": 0,
-        },
-    )
-    if not created:
-        user.username = username
-    user.right += 1
-    user.save()
-    database.close()
+    try:
+        user, created = UserStats.get_or_create(
+            user_id=user_id,
+            defaults={
+                "username": username,
+                "generated": 0,
+                "right": 0,
+                "wrong": 0,
+            },
+        )
+        if not created:
+            user.username = username
+        user.right += 1
+        user.save()
+    finally:
+        database.close()
 
 
 def increment_wrong(user_id: int, username: str | None) -> None:
     database.connect(reuse_if_open=True)
-    user, created = UserStats.get_or_create(
-        user_id=user_id,
-        defaults={
-            "username": username,
-            "generated": 0,
-            "right": 0,
-            "wrong": 0,
-        },
-    )
-    if not created:
-        user.username = username
-    user.wrong += 1
-    user.save()
-    database.close()
+    try:
+        user, created = UserStats.get_or_create(
+            user_id=user_id,
+            defaults={
+                "username": username,
+                "generated": 0,
+                "right": 0,
+                "wrong": 0,
+            },
+        )
+        if not created:
+            user.username = username
+        user.wrong += 1
+        user.save()
+    finally:
+        database.close()
 
 
 def get_user_stats(user_id: int) -> dict:
