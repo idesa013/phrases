@@ -361,6 +361,24 @@ def clear_game_players(game_id: int) -> None:
         database.close()
 
 
+def remove_game_player(game_id: int, user_id: int) -> None:
+    database.connect(reuse_if_open=True)
+    try:
+        game = MultiGame.get_or_none(MultiGame.id == game_id)
+        if game is None:
+            return
+
+        (
+            MultiGamePlayer.delete()
+            .where(
+                (MultiGamePlayer.game == game) & (MultiGamePlayer.user_id == user_id)
+            )
+            .execute()
+        )
+    finally:
+        database.close()
+
+
 def init_round_stats(game_id: int, participants: list[dict]) -> None:
     database.connect(reuse_if_open=True)
     try:
@@ -378,6 +396,33 @@ def init_round_stats(game_id: int, participants: list[dict]) -> None:
             stat.username = participant["username"]
             stat.generated += 1
             stat.save()
+    finally:
+        database.close()
+
+
+def mark_game_forfeit(
+    game_id: int,
+    user_id: int,
+    username: str | None,
+    total_rounds: int,
+) -> None:
+    database.connect(reuse_if_open=True)
+    try:
+        stat, _ = MultiGameStats.get_or_create(
+            game_id=game_id,
+            user_id=user_id,
+            defaults={
+                "username": username,
+                "generated": 0,
+                "right": 0,
+                "wrong": 0,
+            },
+        )
+        stat.username = username
+        stat.generated = total_rounds
+        stat.right = 0
+        stat.wrong = total_rounds
+        stat.save()
     finally:
         database.close()
 

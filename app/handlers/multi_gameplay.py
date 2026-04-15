@@ -3,7 +3,11 @@ import threading
 from telebot import TeleBot
 
 from app.config import ADMIN_IDS
-from app.keyboards.reply import multi_game_keyboard, registration_keyboard
+from app.keyboards.reply import (
+    cancel_keyboard,
+    multi_game_keyboard,
+    registration_keyboard,
+)
 from app.services.menu_state import get_menu_state, set_menu_state
 from app.services.multi_repository import (
     get_answer_attempts,
@@ -220,6 +224,9 @@ def _start_next_round(bot: TeleBot, game_id: int) -> None:
                     f"Время на ответ: {answer_time} сек.\n"
                     f"Количество попыток: {attempts_limit}"
                 ),
+                reply_markup=cancel_keyboard(
+                    is_admin=participant["user_id"] in ADMIN_IDS
+                ),
             )
 
     timer = threading.Timer(answer_time, _finalize_round, args=(bot, game_id))
@@ -288,6 +295,10 @@ def register_multi_gameplay_handlers(bot: TeleBot) -> None:
             return
 
         user_id = message.from_user.id
+
+        if message.text == "Invite":
+            bot.send_message(message.chat.id, "Приглашать можно только до начала игры.")
+            return
 
         if user_id in runtime.answered_correctly:
             bot.send_message(message.chat.id, "Ты уже ответил правильно.")

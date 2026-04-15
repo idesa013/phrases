@@ -67,9 +67,31 @@ def join_confirm_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     return keyboard
 
 
+def invite_confirm_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row(
+        KeyboardButton("Start Game"),
+        KeyboardButton("Cancel"),
+    )
+    if is_admin:
+        keyboard.row(KeyboardButton("Admin-panel"))
+    return keyboard
+
+
 def cancel_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.row(KeyboardButton("Cancel"))
+    if is_admin:
+        keyboard.row(KeyboardButton("Admin-panel"))
+    return keyboard
+
+
+def invite_cancel_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row(
+        KeyboardButton("Invite"),
+        KeyboardButton("Cancel"),
+    )
     if is_admin:
         keyboard.row(KeyboardButton("Admin-panel"))
     return keyboard

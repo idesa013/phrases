@@ -22,6 +22,7 @@ MENU_BUTTONS = {
     "Ended",
     "Back",
     "Start Game",
+    "Invite",
     "Cancel",
     "2",
     "3",

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from peewee import AutoField, CharField, IntegerField, Model, SqliteDatabase
+from peewee import AutoField, CharField, IntegerField, Model, SqliteDatabase, fn
 
 from app.config import DB_PATH
 
@@ -45,6 +45,20 @@ def get_user(user_id: int) -> User | None:
     database.connect(reuse_if_open=True)
     try:
         return User.get_or_none(User.user_id == user_id)
+    finally:
+        database.close()
+
+
+def get_registered_user_by_username(username: str) -> User | None:
+    normalized_username = username.strip().lstrip("@").lower()
+    if not normalized_username:
+        return None
+
+    database.connect(reuse_if_open=True)
+    try:
+        return User.get_or_none(
+            (fn.LOWER(User.username) == normalized_username) & (User.status == 1)
+        )
     finally:
         database.close()
 
