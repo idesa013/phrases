@@ -566,9 +566,9 @@ def register_multi_message_handlers(bot: TeleBot) -> None:
             bot.send_message(
                 message.chat.id,
                 (
-                    f"Пользователь @{username} ещё не открывал бота.\n"
-                    "Перешли ему эту ссылку для приглашения:\n"
-                    f"{invite_link}"
+                    f"{invite_link}\n\n"
+                    f"{_game_description()}\n"
+                    "Открой ссылку, зарегистрируйся и присоединяйся к игре."
                 ),
                 reply_markup=invite_cancel_keyboard(is_admin=is_admin),
             )
